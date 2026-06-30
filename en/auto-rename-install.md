@@ -607,3 +607,112 @@ After installation, use the following tests to confirm the skill works correctly
 | Test 3 false trigger | Normal -- keywords overlap. If it happens frequently, add "variable renaming in code" to the When NOT to Use section in SKILL.md |
 | Test 4 name too narrow | Check if Step 1 in SKILL.md emphasizes "name based on the core task of the conversation" |
 | Test 5 SQLite not updated | Check if the `$CODEX_THREAD_ID` environment variable exists and the DB path is correct |
+
+---
+
+## Section C: Cursor / VS Code Terminal Tab Sync Setup
+
+Auto-rename uses OSC escape sequences (`\033]0;title\007`) to change terminal tab names. Cursor and VS Code both use xterm.js under the hood, which supports OSC, but the default tab title format overrides OSC output.
+
+### Step 1: Modify Settings
+
+Open Cursor / VS Code Settings (JSON) and add:
+
+```json
+"terminal.integrated.tabs.title": "${sequence}"
+```
+
+- `${sequence}` = use the OSC escape sent by the terminal as the tab title — this is what the auto-rename hook needs
+- The default value `${task}${separator}${local}${separator}${cwdFolder}` overrides OSC and must be changed
+
+### Step 2: Verify OSC Support
+
+Run this in the Cursor / VS Code terminal:
+
+```bash
+printf '\033]0;Test Rename\007'
+```
+
+**Expected**: The terminal tab name changes to "Test Rename". If nothing happens, go back to Step 1 and confirm the setting was saved.
+
+### Known Scenarios
+
+| Scenario | Result |
+|---|---|
+| Cursor / VS Code integrated terminal | Works after setting `${sequence}` |
+| SSH remote session | Usually passes through, but some SSH configs strip OSC |
+| macOS Terminal / iTerm2 | Native OSC support, no extra setup needed |
+
+---
+
+## Section D: Migration to Another Computer
+
+### Files Needed for Claude Code
+
+| # | File / Directory | Purpose |
+|---|---|---|
+| 1 | `~/.claude/skills/auto-rename/SKILL.md` | Skill definition (naming rules, emoji mapping) |
+| 2 | `~/.claude/hooks/session-auto-namer.sh` | PostToolUse hook (counter + trigger rename + emit OSC) |
+| 3 | `~/.claude/settings.json` | Hook registration (confirm `PostToolUse` points to the hook script) |
+| 4 | `~/.claude/session-names/` | Create empty directory; files are written at runtime |
+
+### Quick Migration Commands
+
+Run on the **new computer**:
+
+```bash
+# 1. Create directories
+mkdir -p ~/.claude/skills/auto-rename ~/.claude/hooks ~/.claude/session-names
+
+# 2. scp from old computer (replace old-mac with your hostname or IP)
+scp old-mac:~/.claude/skills/auto-rename/SKILL.md ~/.claude/skills/auto-rename/
+scp old-mac:~/.claude/hooks/session-auto-namer.sh ~/.claude/hooks/
+
+# 3. Ensure hook has execute permission
+chmod +x ~/.claude/hooks/session-auto-namer.sh
+```
+
+### Merging settings.json
+
+Do NOT overwrite `~/.claude/settings.json` — the new computer may already have other settings. Ensure the file contains this section:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/session-auto-namer.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+If `PostToolUse` already exists, append this entry to the `hooks` array.
+
+### Cursor / VS Code Setting (also needed on new computer)
+
+```json
+"terminal.integrated.tabs.title": "${sequence}"
+```
+
+### Migration Verification
+
+```bash
+# Hook exists and is executable
+test -x ~/.claude/hooks/session-auto-namer.sh && echo "Hook OK" || echo "Hook MISSING"
+
+# Hook is registered
+python3 -c "import json; d=json.load(open('$HOME/.claude/settings.json')); hooks=[h['command'] for g in d.get('hooks',{}).get('PostToolUse',[]) for h in g.get('hooks',[])]; print('Hook registered' if any('session-auto-namer' in c for c in hooks) else 'Hook NOT registered')"
+
+# OSC test (run in Cursor / VS Code terminal)
+printf '\033]0;Migration Success\007'
+```
+
+All three pass = migration complete.

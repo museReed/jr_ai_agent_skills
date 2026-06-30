@@ -607,3 +607,112 @@ test -x ~/.local/bin/mycodex && echo "Wrapper OK" || echo "Wrapper MISSING"
 | Test 3 誤觸發 | 正常現象——keyword 有重疊。如果頻繁誤觸，在 SKILL.md 的 When NOT to Use 加上「程式碼 rename 變數」 |
 | Test 4 名稱太窄 | 檢查 SKILL.md 的 Step 1 是否強調「用對話核心任務命名」 |
 | Test 5 SQLite 沒更新 | 檢查 `$CODEX_THREAD_ID` 環境變數是否存在，以及 DB 路徑是否正確 |
+
+---
+
+## Section C: Cursor / VS Code Terminal Tab 同步設定
+
+Auto-rename 靠 OSC escape sequence（`\033]0;title\007`）改 terminal tab 名。Cursor 和 VS Code 底層都用 xterm.js，支援 OSC，但預設的 tab title 格式會蓋掉 OSC 輸出。
+
+### Step 1: 修改 Settings
+
+開啟 Cursor / VS Code 的 Settings (JSON)，加入：
+
+```json
+"terminal.integrated.tabs.title": "${sequence}"
+```
+
+- `${sequence}` = 用 terminal 自己發的 OSC escape 當標題——這是 auto-rename hook 需要的值
+- 預設值 `${task}${separator}${local}${separator}${cwdFolder}` 會覆蓋 OSC，必須改掉
+
+### Step 2: 驗證 OSC 支援
+
+在 Cursor / VS Code 的 terminal 裡跑：
+
+```bash
+printf '\033]0;測試改名\007'
+```
+
+**預期**：terminal tab 名稱變成「測試改名」。沒反應 → 回 Step 1 確認設定有存檔。
+
+### 已知情境
+
+| 情境 | 結果 |
+|---|---|
+| Cursor / VS Code integrated terminal | 設定 `${sequence}` 後正常運作 |
+| SSH remote session | 通常可穿透，但部分 SSH config 會 strip OSC |
+| macOS Terminal / iTerm2 | 原生支援 OSC，不需額外設定 |
+
+---
+
+## Section D: 搬遷到其他電腦
+
+### Claude Code 版需要的檔案
+
+| # | 檔案 / 目錄 | 用途 |
+|---|---|---|
+| 1 | `~/.claude/skills/auto-rename/SKILL.md` | skill 定義（命名規則、emoji mapping） |
+| 2 | `~/.claude/hooks/session-auto-namer.sh` | PostToolUse hook（計數 + 觸發改名 + 發 OSC） |
+| 3 | `~/.claude/settings.json` | 註冊 hook（確認 `PostToolUse` 有指向 hook 腳本） |
+| 4 | `~/.claude/session-names/` | 建立空目錄即可，runtime 自動寫檔 |
+
+### 快速搬遷指令
+
+在**新電腦**上執行：
+
+```bash
+# 1. 建目錄
+mkdir -p ~/.claude/skills/auto-rename ~/.claude/hooks ~/.claude/session-names
+
+# 2. 從舊電腦 scp（替換 old-mac 為你的 hostname 或 IP）
+scp old-mac:~/.claude/skills/auto-rename/SKILL.md ~/.claude/skills/auto-rename/
+scp old-mac:~/.claude/hooks/session-auto-namer.sh ~/.claude/hooks/
+
+# 3. 確保 hook 有執行權限
+chmod +x ~/.claude/hooks/session-auto-namer.sh
+```
+
+### settings.json 合併
+
+不要直接覆蓋 `~/.claude/settings.json`，新電腦可能已有其他設定。確認檔案中包含以下區段：
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/session-auto-namer.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+如果已有 `PostToolUse`，在 `hooks` array 末尾 append 這個 entry 即可。
+
+### Cursor / VS Code 設定（新電腦也要做）
+
+```json
+"terminal.integrated.tabs.title": "${sequence}"
+```
+
+### 搬遷驗證
+
+```bash
+# hook 存在且可執行
+test -x ~/.claude/hooks/session-auto-namer.sh && echo "Hook OK" || echo "Hook MISSING"
+
+# hook 已註冊
+python3 -c "import json; d=json.load(open('$HOME/.claude/settings.json')); hooks=[h['command'] for g in d.get('hooks',{}).get('PostToolUse',[]) for h in g.get('hooks',[])]; print('Hook registered' if any('session-auto-namer' in c for c in hooks) else 'Hook NOT registered')"
+
+# OSC 測試（在 Cursor / VS Code terminal 中執行）
+printf '\033]0;搬遷成功\007'
+```
+
+三項都通過 = 搬遷完成。
