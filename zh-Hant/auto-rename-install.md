@@ -81,7 +81,8 @@ Key rules:
 TERMINAL_PID=$(ps -o ppid= -p $PPID 2>/dev/null | tr -d ' ') && \
 mkdir -p ~/.claude/session-names && \
 echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && \
-printf '\033]0;{名稱}\007' && \
+TTY_DEV=$(ps -o tty= -p $PPID 2>/dev/null | tr -d ' ') && \
+{ [ -w "/dev/$TTY_DEV" ] && printf '\033]0;{名稱}\007' > "/dev/$TTY_DEV"; } ; \
 rm -f /tmp/claude-session-namer/$PPID.default
 ```
 
@@ -135,6 +136,16 @@ NAMES_DIR="$HOME/.claude/session-names"
 # Track whether name was set by hook (default) vs Claude (improved)
 DEFAULT_MARKER="$COUNTER_DIR/${CLAUDE_PID}.default"
 
+# Refresh the terminal tab from the saved session name on EVERY tool call.
+# Newer Claude Code (2.1.x) strips ESC bytes from tool stdout, so an OSC written
+# to stdout never reaches the terminal. Writing directly to the controlling tty
+# device bypasses that. Requires CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 so the
+# built-in title does not overwrite this every render.
+TTY_DEV=$(ps -o tty= -p "$CLAUDE_PID" 2>/dev/null | tr -d ' ')
+if [ -n "$TTY_DEV" ] && [ -w "/dev/$TTY_DEV" ] && [ -r "$SESSION_FILE" ]; then
+  printf '\033]0;%s\007' "$(cat "$SESSION_FILE")" > "/dev/$TTY_DEV" 2>/dev/null
+fi
+
 set_session_name() {
   local name="$1"
   mkdir -p "$NAMES_DIR"
@@ -185,6 +196,9 @@ chmod +x ~/.claude/hooks/session-auto-namer.sh
 
 ```json
 {
+  "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -612,6 +626,16 @@ test -x ~/.local/bin/mycodex && echo "Wrapper OK" || echo "Wrapper MISSING"
 
 ## Section C: Cursor / VS Code Terminal Tab 同步設定
 
+> **⚠️ 重要更新（2026-07）**：Claude Code 2.1.x 起會過濾工具 stdout 的 ESC byte，`printf` 寫到 stdout 的 OSC **到不了 terminal**。skill 與 hook 已改為「直寫控制終端裝置」`/dev/$(ps -o tty= -p $PPID)`（見 Section A）。
+>
+> 要 tab 正確改名，需同時滿足三點：
+> 1. Cursor 設 `terminal.integrated.tabs.title: "${sequence}"`（下方 Step 1）
+> 2. skill/hook 直寫 tty 裝置（Section A 已內建）
+> 3. `~/.claude/settings.json` 設 `env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`，否則內建 title 每輪覆寫（Section A Step 2c 的 JSON 已含）
+>
+> 完整跨機器排查與版本差異見 [auto-rename-cursor-diagnostic.md](./auto-rename-cursor-diagnostic.md)。
+
+
 Auto-rename 靠 OSC escape sequence（`\033]0;title\007`）改 terminal tab 名。Cursor 和 VS Code 底層都用 xterm.js，支援 OSC，但預設的 tab title 格式會蓋掉 OSC 輸出。
 
 ### Step 1: 修改 Settings
@@ -678,6 +702,9 @@ chmod +x ~/.claude/hooks/session-auto-namer.sh
 
 ```json
 {
+  "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"
+  },
   "hooks": {
     "PostToolUse": [
       {

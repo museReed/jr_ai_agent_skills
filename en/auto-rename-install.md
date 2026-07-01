@@ -81,7 +81,8 @@ Key rules:
 TERMINAL_PID=$(ps -o ppid= -p $PPID 2>/dev/null | tr -d ' ') && \
 mkdir -p ~/.claude/session-names && \
 echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && \
-printf '\033]0;{名稱}\007' && \
+TTY_DEV=$(ps -o tty= -p $PPID 2>/dev/null | tr -d ' ') && \
+{ [ -w "/dev/$TTY_DEV" ] && printf '\033]0;{名稱}\007' > "/dev/$TTY_DEV"; } ; \
 rm -f /tmp/claude-session-namer/$PPID.default
 ```
 
@@ -135,6 +136,16 @@ NAMES_DIR="$HOME/.claude/session-names"
 # Track whether name was set by hook (default) vs Claude (improved)
 DEFAULT_MARKER="$COUNTER_DIR/${CLAUDE_PID}.default"
 
+# Refresh the terminal tab from the saved session name on EVERY tool call.
+# Newer Claude Code (2.1.x) strips ESC bytes from tool stdout, so an OSC written
+# to stdout never reaches the terminal. Writing directly to the controlling tty
+# device bypasses that. Requires CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 so the
+# built-in title does not overwrite this every render.
+TTY_DEV=$(ps -o tty= -p "$CLAUDE_PID" 2>/dev/null | tr -d ' ')
+if [ -n "$TTY_DEV" ] && [ -w "/dev/$TTY_DEV" ] && [ -r "$SESSION_FILE" ]; then
+  printf '\033]0;%s\007' "$(cat "$SESSION_FILE")" > "/dev/$TTY_DEV" 2>/dev/null
+fi
+
 set_session_name() {
   local name="$1"
   mkdir -p "$NAMES_DIR"
@@ -185,6 +196,9 @@ chmod +x ~/.claude/hooks/session-auto-namer.sh
 
 ```json
 {
+  "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -612,6 +626,16 @@ After installation, use the following tests to confirm the skill works correctly
 
 ## Section C: Cursor / VS Code Terminal Tab Sync Setup
 
+> **⚠️ Important update (2026-07)**: Since Claude Code 2.1.x, ESC bytes in tool stdout are stripped, so an OSC written to stdout via `printf` **never reaches the terminal**. The skill and hook now write directly to the controlling tty device `/dev/$(ps -o tty= -p $PPID)` (see Section A).
+>
+> For the tab to rename correctly, three conditions must all hold:
+> 1. Cursor sets `terminal.integrated.tabs.title: "${sequence}"` (Step 1 below)
+> 2. skill/hook write to the tty device (already built into Section A)
+> 3. `~/.claude/settings.json` sets `env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`, otherwise the built-in title overwrites every render (already included in the Section A Step 2c JSON)
+>
+> Full cross-machine diagnosis and version differences: [auto-rename-cursor-diagnostic.md](./auto-rename-cursor-diagnostic.md).
+
+
 Auto-rename uses OSC escape sequences (`\033]0;title\007`) to change terminal tab names. Cursor and VS Code both use xterm.js under the hood, which supports OSC, but the default tab title format overrides OSC output.
 
 ### Step 1: Modify Settings
@@ -678,6 +702,9 @@ Do NOT overwrite `~/.claude/settings.json` — the new computer may already have
 
 ```json
 {
+  "env": {
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE": "1"
+  },
   "hooks": {
     "PostToolUse": [
       {

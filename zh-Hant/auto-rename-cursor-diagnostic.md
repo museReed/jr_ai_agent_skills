@@ -5,6 +5,36 @@
 
 ---
 
+## ✅ 結論與已驗證解法（2026-07-01）
+
+**根因**:Claude Code **2.1.x 起會過濾工具 stdout 裡的 ESC byte**（`0x1b`）。skill 的 `printf` OSC 寫到 stdout → 被 Claude Code 捕捉成工具輸出 → 渲染時 ESC 被 strip → 到不了 terminal。這就是「路徑 B（stdout 間接傳遞）」在新版被切斷。
+
+| 機器 | Claude Code | 路徑 B（stdout OSC） | 結果 |
+|---|---|---|---|
+| reed | 2.1.52 | 生效（渲染保留 ESC） | `/auto-rename` 直接可用 |
+| 另一台 | 2.1.197 | **被切斷（渲染 strip ESC）** | 需改走 tty 直寫 |
+
+**已驗證解法（版本無關，2.1.197 實測通過）**:繞過 stdout，**直寫控制終端裝置**，並關掉內建 title 覆寫。
+
+1. **skill / hook 直寫 tty 裝置**（不是 stdout）:
+   ```bash
+   TTY_DEV=$(ps -o tty= -p $PPID 2>/dev/null | tr -d ' ')
+   [ -w "/dev/$TTY_DEV" ] && printf '\033]0;{名稱}\007' > "/dev/$TTY_DEV"
+   ```
+   Bash 工具子程序雖 `tty → not a tty`，但父程序（Claude Code）的控制終端裝置 `/dev/ttysXXX` 由同一使用者擁有、可寫入，直寫即到 xterm.js。
+2. **關掉 Claude Code 內建 title**:`~/.claude/settings.json` 設 `env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`。否則內建 title 每輪 tool call 覆寫 → 症狀是「tab 閃一下又變回」。**改後需重開 Claude Code**（env 啟動時載入）。
+3. **Cursor 設定**:`terminal.integrated.tabs.title: "${sequence}"`，且只對「存檔後新開」的 terminal 生效。
+
+**hook 每輪刷新**:讓 `session-auto-namer.sh` 每次 tool call 讀 `session-names/${PID}.txt` 並直寫 tty 裝置 → 手動 `/auto-rename` 與自動命名都即時生效、且不被蓋。
+
+**中文編碼**:經 tty 裝置直寫，**中文/emoji 顯示正常**（2.1.197 實測「🔧中文測試」正確）。先前手動在 fresh terminal `printf` 出現的亂碼（`測試`→`æ¸¬è©¦`）是該路徑的 locale 差異，非 tty 直寫路徑的問題。
+
+**驗證**:關 DISABLE + 重開 Claude Code 後，做 ≥5 次 tool call 或打 `/auto-rename` → tab 穩定變成 emoji 中文名，不再彈回。實作見 [auto-rename-install.md](./auto-rename-install.md) Section A + C。
+
+> 以下為原始排查過程與跨機器數據，保留供追溯。
+
+---
+
 ## 背景:已知的三層機制
 
 auto-rename skill 靠 OSC escape sequence（`\033]0;title\007`）改 terminal tab 名。OSC 有**兩條路徑**可以到達 terminal：
@@ -129,20 +159,24 @@ printf '\033]0;PATH-B-TEST\007' && echo "done"
 
 **原結論（已修正）**：~~雙重失效~~ → 實際上 `/auto-rename` 在這台機器**正常運作**。條件 1 和路徑 A 雖然都不成立，但路徑 B（stdout 間接傳遞）生效，OSC bytes 經 Claude Code 渲染後仍到達 terminal。
 
-### 機器 B — （待填）
+### 機器 B — 另一台（原失效 → 已修復）
 
-> 在另一台正常機器上跑 §診斷步驟 A + B，把結果填入下表。
+- **日期**：2026-07-01
+- **環境**：macOS Darwin 24.6.0, Cursor (vscode)
 
 | 檢查項 | 結果 | 判讀 |
 |---|---|---|
-| Claude Code 版本 | | |
-| `tty`（Bash 工具） | | |
-| `TERM_PROGRAM` | | |
-| `CLAUDE_CODE_DISABLE_TERMINAL_TITLE` | | |
-| `claude` 是否 wrapper | | |
-| Cursor `${sequence}` 設定 | | |
+| Claude Code 版本 | **2.1.197** | 比 reed 新 145 版號 → **渲染時 strip 工具 stdout 的 ESC byte，路徑 B 被切斷** |
+| `tty`（Bash 工具） | `not a tty` | 與 reed 相同，非分歧點 |
+| 路徑 B 測試（`printf` 純 ASCII 到 stdout） | **tab 沒變** | 路徑 B 死（與 reed 2.1.52 相反）→ 確認是版本差異 |
+| tty 裝置直寫（`> /dev/ttysXXX`，ASCII） | **tab 有變**（隨即被內建 title 覆寫回去） | tty 直寫可行，內建 title 是覆寫元兇 |
+| tty 裝置直寫（中文/emoji） | **顯示正常**（🔧中文測試） | tty 直寫路徑中文不亂碼 |
+| `TERM_PROGRAM` | `vscode` | Cursor integrated terminal |
+| `CLAUDE_CODE_DISABLE_TERMINAL_TITLE` | 原未設 → **改設 1** | 未設時內建 title 每輪覆寫；設 1 + 重開後解決 |
+| `claude` 是否 wrapper | 直接二進位 | 非 wrapper |
+| Cursor `${sequence}` 設定 | 已設 | tab 願意吃 OSC |
 
-**結論：（跑完後填寫）**
+**結論**:版本 2.1.197 切斷路徑 B。改走「tty 裝置直寫 + `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1` + 重開」後，`/auto-rename` 即時生效、中文正常、不再彈回。詳見本文頂部「✅ 結論與已驗證解法」。
 
 ### 跨機器比對
 
