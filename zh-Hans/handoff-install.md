@@ -110,7 +110,8 @@ Commit 到当前 branch，不要切回 develop。
 TERMINAL_PID=$(ps -o ppid= -p $PPID 2>/dev/null | tr -d ' ')
 mkdir -p ~/.claude/session-names
 echo '📦 {topic}' > ~/.claude/session-names/${TERMINAL_PID}.txt
-printf '\033]0;📦 {topic}\007'
+TTY_DEV=$(ps -o tty= -p $PPID 2>/dev/null | tr -d ' ')
+[ -w "/dev/$TTY_DEV" ] && printf '\033]0;📦 {topic}\007' > "/dev/$TTY_DEV"
 
 回报格式（最后一行必须是可直接复制的单行起始 prompt，路径用绝对路径）：
 Handoff 已产出：{abs_path}
