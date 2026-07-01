@@ -66,6 +66,52 @@ grep -iE 'tabs.title|sequence|terminal' \
 
 ---
 
+## 實測紀錄
+
+### 機器 A — reed（失效）
+
+- **日期**：2026-07-01
+- **環境**：macOS Darwin 25.3.0, Cursor (vscode 3.7.42)
+
+| 檢查項 | 結果 | 判讀 |
+|---|---|---|
+| Claude Code 版本 | 2.1.52 | — |
+| `tty`（Bash 工具） | `not a tty` | **條件 3 不成立** — `printf` OSC 寫到 stdout，被 Claude Code 捕捉成工具輸出，到不了 terminal |
+| `TERM_PROGRAM` | `vscode / 3.7.42` | 跑在 Cursor integrated terminal |
+| `CLAUDE_CODE_DISABLE_TERMINAL_TITLE` | (unset) | 內建 title 未被關閉，每輪 tool call 會被 Claude Code 覆寫 |
+| `claude` 是否 wrapper | 直接二進位（`Mach-O arm64` at `~/.local/bin/claude`），alias `ANTHROPIC_API_KEY= claude` | 不是 wrapper script，alias 只清 env var |
+| Cursor `${sequence}` 設定 | **未設定** — 只有 `terminal.integrated.fontFamily` | **條件 1 不成立** — tab 用預設模板，即使 OSC 送達也會被吃掉 |
+
+**結論：雙重失效。** 條件 1（Cursor 沒設 `${sequence}`）和條件 3（Bash 工具 `not a tty`）同時不成立。skill 的 `printf` OSC 在這台機器上結構性無效。
+
+### 機器 B — （待填）
+
+> 在另一台正常機器上跑 §診斷步驟 A + B，把結果填入下表。
+
+| 檢查項 | 結果 | 判讀 |
+|---|---|---|
+| Claude Code 版本 | | |
+| `tty`（Bash 工具） | | |
+| `TERM_PROGRAM` | | |
+| `CLAUDE_CODE_DISABLE_TERMINAL_TITLE` | | |
+| `claude` 是否 wrapper | | |
+| Cursor `${sequence}` 設定 | | |
+
+**結論：（跑完後填寫）**
+
+### 跨機器比對
+
+> 兩台都填完後，對照 §判讀表 找出差異項。最可能的分歧點：
+
+| 差異項 | 機器 A | 機器 B | 意義 |
+|---|---|---|---|
+| `tty` | `not a tty` | （待填） | 若 B 回真 pts → B 的 Bash 工具有控制終端，OSC 直達 tab |
+| `${sequence}` | 未設定 | （待填） | 若 B 已設 → B 的 Cursor 接受 OSC 當 tab 名 |
+| `claude` wrapper | 直接二進位 | （待填） | 若 B 是 wrapper → wrapper 可能補了 tty 轉發 |
+| Claude Code 版本 | 2.1.52 | （待填） | 版本差異可能改變 Bash spawn 方式 |
+
+---
+
 ## 可能的修法(依診斷結果)
 
 - **若正常機器 `tty` 回傳真 pts**:差異在 Claude Code spawn Bash 的方式(版本 / wrapper)。對齊版本或複製 wrapper。
