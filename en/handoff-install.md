@@ -39,6 +39,7 @@ user-invocable: true
 3. 產出交接文件，包含：已完成、進行中、下一步、必讀檔案
 4. Commit handoff 文件到當前 branch
 5. 改 session name 為 📦 前綴（標記已交接）
+6. 回報結尾輸出單行起始 prompt（絕對路徑），給新 session 直接複製
 
 Key rules:
 - 「已完成的工作」≤ 10 行，細節指向「必讀檔案」
@@ -89,7 +90,7 @@ gh pr list --state open --head "$(git branch --show-current)" --json number,titl
 - **已知問題**：如果有的話
 
 路徑規則：
-- 檔案路徑一律用 repo-relative（`docs/handoff/...`），禁止帶 `.worktrees/` 前綴
+- 文件「內部」引用的路徑一律用 repo-relative（`docs/handoff/...`），禁止帶 `.worktrees/` 前綴（Step 5 回報的起始 prompt 例外，用絕對路徑）
 - 若檔案只存在於特定 branch，標注 `(branch: {name})`
 
 ✅ DO: 用具體的 PR 號碼、檔案路徑、指令
@@ -111,10 +112,13 @@ mkdir -p ~/.claude/session-names
 echo '📦 {topic}' > ~/.claude/session-names/${TERMINAL_PID}.txt
 printf '\033]0;📦 {topic}\007'
 
-回報格式：
-Handoff 已產出：docs/handoff/{file}
+回報格式（最後一行必須是可直接複製的單行起始 prompt，路徑用絕對路徑）：
+Handoff 已產出：{abs_path}
 Branch: {current_branch}
-{接續指引——依新 session 情境選一句}
+下個 session 貼這行繼續：讀 {abs_path}
+
+其中 {abs_path} 是交接文件的絕對路徑（如 `/Users/you/project/docs/handoff/2026-07-01-topic.md`）。
+⚠️ 只輸出上面三行，不要重述交接文件的內容——狀態摘要、必讀檔案、下一步都已寫在文件裡，新 session 讀檔即可。
 
 ## Common Mistakes
 
@@ -125,6 +129,8 @@ Branch: {current_branch}
 | 必讀檔案只列路徑 | 新 session 不知道為什麼要讀 | 每項附原因 |
 | 忘記改 terminal name | 無法辨識哪個 session 已交接 | Step 5 必做，📦 前綴 |
 | 路徑帶 .worktrees/ 前綴 | 新 session 不在同一個 worktree 就 404 | 一律 repo-relative |
+| 起始 prompt 重述整份交接內容 | 浪費輸出，新 session 讀檔就有 | 只給 `讀 {絕對路徑}` 一行 |
+| 起始 prompt 用相對路徑 | 新 session cwd 不同會 404 | 一律絕對路徑 |
 ```
 
 ### Step 2: Install Context Monitor Hook

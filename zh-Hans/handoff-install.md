@@ -39,6 +39,7 @@ user-invocable: true
 3. 产出交接文件，包含：已完成、进行中、下一步、必读文件
 4. Commit handoff 文件到当前 branch
 5. 改 session name 为 📦 前缀（标记已交接）
+6. 回报结尾输出单行起始 prompt（绝对路径），给新 session 直接复制
 
 Key rules:
 - 「已完成的工作」≤ 10 行，细节指向「必读文件」
@@ -89,7 +90,7 @@ gh pr list --state open --head "$(git branch --show-current)" --json number,titl
 - **已知问题**：如果有的话
 
 路径规则：
-- 文件路径一律用 repo-relative（`docs/handoff/...`），禁止带 `.worktrees/` 前缀
+- 文件「内部」引用的路径一律用 repo-relative（`docs/handoff/...`），禁止带 `.worktrees/` 前缀（Step 5 回报的起始 prompt 例外，用绝对路径）
 - 若文件只存在于特定 branch，标注 `(branch: {name})`
 
 ✅ DO: 用具体的 PR 号码、文件路径、指令
@@ -111,10 +112,13 @@ mkdir -p ~/.claude/session-names
 echo '📦 {topic}' > ~/.claude/session-names/${TERMINAL_PID}.txt
 printf '\033]0;📦 {topic}\007'
 
-回报格式：
-Handoff 已产出：docs/handoff/{file}
+回报格式（最后一行必须是可直接复制的单行起始 prompt，路径用绝对路径）：
+Handoff 已产出：{abs_path}
 Branch: {current_branch}
-{接续指引——依新 session 情境选一句}
+下个 session 贴这行继续：读 {abs_path}
+
+其中 {abs_path} 是交接文件的绝对路径（如 `/Users/you/project/docs/handoff/2026-07-01-topic.md`）。
+⚠️ 只输出上面三行，不要重述交接文件的内容——状态摘要、必读文件、下一步都已写在文件里，新 session 读档即可。
 
 ## Common Mistakes
 
@@ -125,6 +129,8 @@ Branch: {current_branch}
 | 必读文件只列路径 | 新 session 不知道为什么要读 | 每项附原因 |
 | 忘记改 terminal name | 无法辨识哪个 session 已交接 | Step 5 必做，📦 前缀 |
 | 路径带 .worktrees/ 前缀 | 新 session 不在同一个 worktree 就 404 | 一律 repo-relative |
+| 起始 prompt 重述整份交接内容 | 浪费输出，新 session 读档就有 | 只给 `读 {绝对路径}` 一行 |
+| 起始 prompt 用相对路径 | 新 session cwd 不同会 404 | 一律绝对路径 |
 ```
 
 ### Step 2: 安装 Context Monitor Hook
