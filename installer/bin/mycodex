@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# mycodex — Codex launcher with unified ai-tab-sync architecture.
+# 1. Creates a per-session sync file and exports $AI_TAB_SYNC_FILE
+# 2. Starts a background watcher (poll sync file → OSC to tty)
+# 3. Launches codex (inherits $AI_TAB_SYNC_FILE; the session-namer hook writes it)
+# Usage: mycodex [any codex args]
+set -euo pipefail
+
+CODEX_BIN="$(command -v codex 2>/dev/null || echo codex)"
+WATCHER="$HOME/.local/bin/ai-tab-sync.sh"
+SYNC_DIR="$HOME/.ai-session-names"
+mkdir -p "$SYNC_DIR"
+
+TTY_PATH=$(tty 2>/dev/null || true)
+if [ -z "$TTY_PATH" ] || [ "$TTY_PATH" = "not a tty" ] || [ ! -f "$WATCHER" ]; then
+  exec "$CODEX_BIN" "$@"
+fi
+
+export AI_TAB_SYNC_FILE="$SYNC_DIR/$$.txt"
+echo "(等待命名)" > "$AI_TAB_SYNC_FILE"
+
+bash "$WATCHER" "$AI_TAB_SYNC_FILE" "$TTY_PATH" &
+WATCHER_PID=$!
+
+cleanup() {
+  kill "$WATCHER_PID" 2>/dev/null || true
+  rm -f "$AI_TAB_SYNC_FILE" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+"$CODEX_BIN" "$@"
