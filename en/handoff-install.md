@@ -52,6 +52,8 @@ cd jr_ai_agent_skills/installer
 
 ## E2E Verification (the AI agent MUST actively walk the user through this — do not skip)
 
+> Full step-by-step playbook (4 rounds × checkpoint IDs) → Read `installer/VERIFICATION.md` and walk the user through it.
+
 ### Step 1: Automated checks
 
 ```bash

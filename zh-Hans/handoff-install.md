@@ -51,6 +51,8 @@ cd jr_ai_agent_skills/installer
 
 ## E2E 验证（AI agent 必须主动引导用户完成，不可跳过）
 
+> 完整逐步引导剧本（四轮 × 检查点编号）→ Read `installer/VERIFICATION.md`，照它带用户跑。
+
 ### 第 1 步：自动检查
 
 ```bash
