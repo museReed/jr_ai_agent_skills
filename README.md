@@ -67,6 +67,11 @@ then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the 
 | 行為不對時查症狀 | `installer/TROUBLESHOOTING.md` |
 | 修不掉回報（附 `verify.sh --report` 診斷包） | [開 issue](https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md) |
 
+之後哪天行為不對，把這段貼給你的 AI 就會自動排查（修不掉會替你準備 issue）：
+```
+Read jr_ai_agent_skills/installer/TROUBLESHOOTING.md and debug this for me: {一句話描述症狀}
+```
+
 ---
 
 ## 简体中文
@@ -132,6 +137,11 @@ then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the 
 | 行为不对时查症状 | `installer/TROUBLESHOOTING.md` |
 | 修不掉回报（附 `verify.sh --report` 诊断包） | [开 issue](https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md) |
 
+之后哪天行为不对，把这段贴给你的 AI 就会自动排查（修不掉会替你准备 issue）：
+```
+Read jr_ai_agent_skills/installer/TROUBLESHOOTING.md and debug this for me: {一句话描述症状}
+```
+
 ---
 
 ## English
@@ -196,6 +206,11 @@ Same pattern for other skills — just swap the filename (install handoff next: 
 | Guided E2E verification (AI agent walks the user through 4 rounds with checkpoint IDs) | `installer/VERIFICATION.md` |
 | Something behaves wrong | `installer/TROUBLESHOOTING.md` |
 | Can't fix it — report (attach `verify.sh --report`) | [Open an issue](https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md) |
+
+If something misbehaves later, paste this to your AI and it will debug (and draft an issue if it can't fix it):
+```
+Read jr_ai_agent_skills/installer/TROUBLESHOOTING.md and debug this for me: {one-line symptom}
+```
 
 ---
 
