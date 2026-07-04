@@ -33,10 +33,16 @@
 
 ## 回報方式（讓 trouble shooting 紀錄集中留存）
 
-1. 跑 `./verify.sh --report`，會產出 `verify-report-*.md`
-2. 到 <https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md> 開 issue
-3. 標題格式：`[install] {工具} {一句話症狀}`（例：`[install] codex tab 不改名 @ Cursor`）
-4. 內文貼上報告全文 + 上面第 2、3 點的證據
+一個指令搞定（自動跑 verify --report、收集上面第 3 點的全部證據、開 issue）：
+
+```bash
+./diagnose.sh "{工具} {一句話症狀}"     # 例：./diagnose.sh "codex tab 不改名 @ Cursor"
+```
+
+- 有 `gh` CLI 且已登入 → 直接建好 issue、回傳網址
+- 沒有 → 內容自動進剪貼簿 + 打開預填好的 new-issue 頁，貼上送出即可
+- 手動路徑（diagnose.sh 本身壞掉時）：跑 `./verify.sh --report`，把報告貼到
+  <https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md>，標題 `[install] {工具} {一句話症狀}`
 
 > 給安裝方 AI agent 的指示：安裝失敗或驗證不過時，**主動**替用戶跑 `--report`、收集上述證據、
 > 產出 issue 內文草稿讓用戶貼——不要只說「安裝完成」就結束。

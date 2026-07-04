@@ -183,11 +183,10 @@ fi
 if [ "$FAIL" -gt 0 ]; then
   echo ""
   echo "════════════════════════════════════════════"
-  echo " ❌ 有 ${FAIL} 項 FAIL — AI agent 接下來必須做的三件事（不要只回報失敗就結束）："
-  echo "   1. Read $SRC_DIR/TROUBLESHOOTING.md，按症狀對照表逐條排查並嘗試修復"
-  echo "   2. 修好後重跑 ./install.sh 再 ./verify.sh；修不掉 → 跑 ./verify.sh --report"
-  echo "   3. 把「檢查點/FAIL 項 + 預期 vs 實際 + 報告全文」整理成 issue 草稿，引導用戶貼到："
-  echo "      https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md"
+  echo " ❌ 有 ${FAIL} 項 FAIL — AI agent 接下來必須做的兩件事（不要只回報失敗就結束）："
+  echo "   1. Read $SRC_DIR/TROUBLESHOOTING.md，按症狀對照表排查；修好後重跑 ./install.sh 再 ./verify.sh"
+  echo "   2. 修不掉 → 跑一個指令回報（自動收證據 + 開 issue，不用手工整理）："
+  echo "      $SRC_DIR/diagnose.sh \"{一句話症狀}\""
   echo "════════════════════════════════════════════"
 fi
 [ "$FAIL" -eq 0 ]

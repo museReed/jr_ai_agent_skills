@@ -65,7 +65,7 @@ then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the 
 | 裝完自動檢查（29 點） | `installer/verify.sh` |
 | 引導式 E2E 驗證（AI agent 帶用戶跑四輪，含檢查點編號） | `installer/VERIFICATION.md` |
 | 行為不對時查症狀 | `installer/TROUBLESHOOTING.md` |
-| 修不掉回報（附 `verify.sh --report` 診斷包） | [開 issue](https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md) |
+| 修不掉回報（一個指令自動收證據 + 開 issue） | `installer/diagnose.sh "一句話症狀"` |
 
 之後哪天行為不對，把這段貼給你的 AI 就會自動排查（修不掉會替你準備 issue）：
 ```
@@ -135,7 +135,7 @@ then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the 
 | 装完自动检查（29 点） | `installer/verify.sh` |
 | 引导式 E2E 验证（AI agent 带用户跑四轮，含检查点编号） | `installer/VERIFICATION.md` |
 | 行为不对时查症状 | `installer/TROUBLESHOOTING.md` |
-| 修不掉回报（附 `verify.sh --report` 诊断包） | [开 issue](https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md) |
+| 修不掉回报（一个指令自动收证据 + 开 issue） | `installer/diagnose.sh "一句话症状"` |
 
 之后哪天行为不对，把这段贴给你的 AI 就会自动排查（修不掉会替你准备 issue）：
 ```
@@ -205,7 +205,7 @@ Same pattern for other skills — just swap the filename (install handoff next: 
 | Post-install automated check (29 points) | `installer/verify.sh` |
 | Guided E2E verification (AI agent walks the user through 4 rounds with checkpoint IDs) | `installer/VERIFICATION.md` |
 | Something behaves wrong | `installer/TROUBLESHOOTING.md` |
-| Can't fix it — report (attach `verify.sh --report`) | [Open an issue](https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md) |
+| Can't fix it — one command collects evidence and files the issue | `installer/diagnose.sh "one-line symptom"` |
 
 If something misbehaves later, paste this to your AI and it will debug (and draft an issue if it can't fix it):
 ```
