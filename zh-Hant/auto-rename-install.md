@@ -96,10 +96,15 @@ sqlite3 "$(ls -t ~/.codex/state_*.sqlite | head -1)" \
 
 ### 失敗時（AI agent 的責任，不要只說「裝完了」就結束）
 
-1. 跑 `./verify.sh --report` 產出診斷報告
-2. 開 `installer/TROUBLESHOOTING.md`，按症狀對照表逐條檢查
-3. 修不掉 → 替用戶準備好 issue 內容（報告全文 + 現場證據），引導用戶貼到：
-   <https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md>
+1. Read `installer/TROUBLESHOOTING.md`，按症狀對照表排查；修好後重跑 `install.sh` 再 `verify.sh`
+2. 修不掉 → 跑一個指令回報（自動跑 verify --report、收集現場證據、開 issue，不用手工整理）：
+
+```bash
+cd jr_ai_agent_skills/installer
+./diagnose.sh "{工具} {一句話症狀}"     # 例：./diagnose.sh "codex tab 不改名 @ Cursor"
+```
+
+有 `gh` CLI 且已登入會直接開好 issue；沒有則內容進剪貼簿 + 打開預填的 new-issue 頁，請用戶貼上送出。
 
 ## 機制細節（debug 時參考）
 
