@@ -80,10 +80,15 @@ verify 会模拟 context-monitor 触发（假 transcript + 缩小窗口），全
 
 ### 失败时（AI agent 的责任，不要只说「装完了」就结束）
 
-1. 跑 `./verify.sh --report` 产出诊断报告
-2. 开 `installer/TROUBLESHOOTING.md` 按症状对照表检查（第 8 条就是 context-monitor 常见问题）
-3. 修不掉 → 替用户准备好 issue 内容，引导用户贴到：
-   <https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md>
+1. Read `installer/TROUBLESHOOTING.md`，按症状对照表排查；修好后重跑 `install.sh` 再 `verify.sh`
+2. 修不掉 → 跑一个指令回报（自动跑 verify --report、收集现场证据、开 issue，不用手工整理）：
+
+```bash
+cd jr_ai_agent_skills/installer
+./diagnose.sh "{工具} {一句话症状}"     # 例：./diagnose.sh "codex tab 不改名 @ Cursor"
+```
+
+有 `gh` CLI 且已登录会直接开好 issue；没有则内容进剪贴板 + 打开预填的 new-issue 页，请用户贴上提交。
 
 ## 机制细节（debug 时参考）
 

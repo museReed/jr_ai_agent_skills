@@ -81,10 +81,15 @@ In any normal session, type "write a handoff" → it should produce the document
 
 ### On failure (the AI agent's responsibility — do not just say "installed" and stop)
 
-1. Run `./verify.sh --report` to produce a diagnostic report
-2. Open `installer/TROUBLESHOOTING.md` and go through the symptom table (entry #8 is the common context-monitor issue)
-3. If it still can't be fixed → prepare the issue content for the user and guide them to post it at:
-   <https://github.com/museReed/jr_ai_agent_skills/issues/new?template=install-report.md>
+1. Read `installer/TROUBLESHOOTING.md`, work through the symptom table; after fixing, rerun `install.sh` then `verify.sh`
+2. Can't fix it → report with one command (runs verify --report, collects scene evidence, files the issue — no manual assembly):
+
+```bash
+cd jr_ai_agent_skills/installer
+./diagnose.sh "{tool} {one-line symptom}"     # e.g. ./diagnose.sh "codex tab not renaming @ Cursor"
+```
+
+With `gh` CLI authed it files the issue directly; otherwise the body lands in the clipboard and a prefilled new-issue page opens — the user just pastes and submits.
 
 ## Mechanism details (for debugging reference)
 
