@@ -34,6 +34,7 @@
 | macOS + Cursor terminal | ✅ | ✅ | 需在 Cursor `settings.json` 加 `"terminal.integrated.tabs.title": "${sequence}"` |
 | macOS + Antigravity terminal | ✅ | ✅ | 同上（Antigravity 自己的 settings.json） |
 | Linux | 未實測 | 未實測 | installer 理論相容，歡迎回報 |
+| Windows（PowerShell / Windows Terminal） | 未實測 | 未實測 | 尚未完整測試，workshop 現場曾遇 PowerShell 相容問題——建議先在 macOS/Linux 使用，歡迎回報 |
 
 ### 怎麼安裝？
 
@@ -98,6 +99,7 @@ then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the 
 | macOS + Cursor terminal | ✅ | ✅ | 需在 Cursor `settings.json` 加 `"terminal.integrated.tabs.title": "${sequence}"` |
 | macOS + Antigravity terminal | ✅ | ✅ | 同上（Antigravity 自己的 settings.json） |
 | Linux | 未实测 | 未实测 | installer 理论兼容，欢迎反馈 |
+| Windows（PowerShell / Windows Terminal） | 未实测 | 未实测 | 尚未完整测试，workshop 现场曾遇 PowerShell 兼容问题——建议先在 macOS/Linux 使用，欢迎反馈 |
 
 ### 怎么安装？
 
@@ -162,6 +164,7 @@ Three skills + two hooks that take session management in Claude Code / Codex CLI
 | macOS + Cursor terminal | ✅ | ✅ | Add `"terminal.integrated.tabs.title": "${sequence}"` to Cursor's settings.json |
 | macOS + Antigravity terminal | ✅ | ✅ | Same setting, in Antigravity's own settings.json |
 | Linux | untested | untested | Installer should be compatible — reports welcome |
+| Windows (PowerShell / Windows Terminal) | untested | untested | Not fully tested yet; PowerShell compatibility issues were seen in workshops — prefer macOS/Linux for now, reports welcome |
 
 ### How to install?
 
