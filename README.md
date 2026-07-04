@@ -37,23 +37,25 @@
 
 ### 怎麼安裝？
 
-Clone 下來，讓 AI 讀安裝指南（script 都在 `installer/`，一鍵冪等安裝）：
+兩步：clone 這個 repo，然後**把下面的 prompt 原封不動貼給你的 AI**（它會自己讀指南、安裝、然後帶你跑完驗證）：
 
 ```bash
 git clone https://github.com/museReed/jr_ai_agent_skills.git
 ```
 
-**Claude Code：**
+**用 Claude Code 的人，貼這段給 Claude：**
 ```
-Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and execute Section A
-```
-
-**Codex CLI：**
-```
-Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and execute Section B
+Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and execute Section A,
+then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
 ```
 
-其他 skill 同理，換檔名即可。
+**用 Codex CLI 的人，貼這段給 Codex：**
+```
+Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and execute Section B,
+then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
+```
+
+其他 skill 同理，換檔名即可（handoff 建議接著裝：同一個 prompt 把 `auto-rename` 換成 `handoff`）。
 
 ### 驗證與除錯
 
@@ -99,23 +101,25 @@ Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and execute Section B
 
 ### 怎么安装？
 
-Clone 下来，让 AI 读安装指南（script 都在 `installer/`，一键幂等安装）：
+两步：clone 这个 repo，然后**把下面的 prompt 原封不动贴给你的 AI**（它会自己读指南、安装、然后带你跑完验证）：
 
 ```bash
 git clone https://github.com/museReed/jr_ai_agent_skills.git
 ```
 
-**Claude Code：**
+**用 Claude Code 的人，贴这段给 Claude：**
 ```
-Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and execute Section A
-```
-
-**Codex CLI：**
-```
-Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and execute Section B
+Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and execute Section A,
+then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
 ```
 
-其他 skill 同理，换文件名即可。
+**用 Codex CLI 的人，贴这段给 Codex：**
+```
+Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and execute Section B,
+then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
+```
+
+其他 skill 同理，换文件名即可（handoff 建议接着装：同一个 prompt 把 `auto-rename` 换成 `handoff`）。
 
 ### 验证与排错
 
@@ -161,23 +165,25 @@ Three skills + two hooks that take session management in Claude Code / Codex CLI
 
 ### How to install?
 
-Clone this repo, then have AI read the install guide (all scripts live in `installer/`; one idempotent command):
+Two steps: clone this repo, then **paste the prompt below verbatim to your AI** (it will read the guide, install, and walk you through verification):
 
 ```bash
 git clone https://github.com/museReed/jr_ai_agent_skills.git
 ```
 
-**Claude Code:**
+**Claude Code users, paste this to Claude:**
 ```
-Read jr_ai_agent_skills/en/auto-rename-install.md and execute Section A
-```
-
-**Codex CLI:**
-```
-Read jr_ai_agent_skills/en/auto-rename-install.md and execute Section B
+Read jr_ai_agent_skills/en/auto-rename-install.md and execute Section A,
+then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
 ```
 
-Same pattern for other skills — just swap the filename.
+**Codex CLI users, paste this to Codex:**
+```
+Read jr_ai_agent_skills/en/auto-rename-install.md and execute Section B,
+then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
+```
+
+Same pattern for other skills — just swap the filename (install handoff next: same prompt with `auto-rename` → `handoff`).
 
 ### Verify & troubleshoot
 
