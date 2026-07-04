@@ -67,8 +67,8 @@ verify 會模擬 context-monitor 觸發（假 transcript + 縮小視窗），全
 1. 請用戶開**新 terminal**，在一個 git repo 裡啟動測試 session：
    - Claude Code：`CONTEXT_MONITOR_TEST_WINDOW=30000 claude`
    - Codex：`CODEX_TEST_MAX_CONTEXT_WINDOW=20000 codex`
-2. 叫它做 1-2 件會動手的事（例如「列出這個資料夾的檔案」）
-3. 預期：AI 開始說「⚠️ Context 已用 …（測試模式）請寫交接文件」——**看到警告＝hook 驗證成功**，可以直接關掉，不用真的寫完 handoff
+2. 叫它做 1-2 件會動手的事（例如「列出這個資料夾的檔案」），做完**再下第二個指令**（例如「再列一次」）
+3. 預期：**第二個指令的回合起**，AI 開始說「⚠️ Context 已用 …（測試模式）請寫交接文件」——**看到警告＝hook 驗證成功**，可以直接關掉，不用真的寫完 handoff
 4. （可選）讓它寫完：檢查 `docs/handoff/` 出現文件、有 commit、session 改名成 `📦 …`
 5. 提醒用戶：測試 session 關掉即可，正常 session 不設環境變數、行為完全不變
 
@@ -88,6 +88,8 @@ verify 會模擬 context-monitor 觸發（假 transcript + 縮小視窗），全
 - Claude 側 context-monitor 從 hook stdin 的 `transcript_path` 讀**當前 session** 的 JSONL——
   不用 mtime 猜檔案（多 session 同開會猜錯，這是修過的坑）
 - Codex 側優先讀 rollout JSONL 的 `token_count` 事件；讀不到退回「tool call 數 ≈ 用量」估算
+- Codex 的 `token_count` 在**回合結束**才寫入，hook 在回合中執行 → 警告有一回合的時差，
+  測試時第二個指令才會看到（正常使用無感，70% 不會只差一回合）
 - 測試旋鈕：`CONTEXT_MONITOR_TEST_WINDOW`（Claude）/ `CODEX_TEST_MAX_CONTEXT_WINDOW`（Codex），
   只影響帶著變數啟動的那個 session
 - Codex 觸發後會**持續催**直到 AI 照指示 `touch /tmp/codex-context-monitor/{pid}.handoff`——

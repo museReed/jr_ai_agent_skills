@@ -18,7 +18,8 @@
 | 7 | AI 收到命名請求但 tab 還是舊的（Codex） | relay 檔有沒有被消化（檔案還在＝hook 沒跑） | hook 在「下一次 tool call 或訊息」才套用；完全沒消化＝hooks.json 註冊路徑錯 |
 | 8 | context-monitor 瘋狂催寫 handoff | ① 是不是設了測試變數（`CONTEXT_MONITOR_TEST_WINDOW` / `CODEX_TEST_MAX_CONTEXT_WINDOW`）② context 是不是真的 >70% | 測試變數只該在測試 session 用；真超標就照指示寫 handoff（Codex 寫完要 `touch` 它給的 marker 路徑才會停） |
 | 9 | `install.sh` 中途失敗 | 錯誤訊息是不是 JSON 相關 | `~/.claude/settings.json` / `~/.codex/hooks.json` 可能本來就不是合法 JSON（手改壞的）。先 `python3 -m json.tool <檔案>` 找出壞處修好，再重跑 install.sh |
-| 10 | 舊 terminal 的 tab 名字凍結 | 那個 terminal 是不是安裝前開的 | 正常——舊 watcher 握著舊檔案繼續跑，關掉重開就好 |
+| 10 | Codex 測試模式下沒看到 context-monitor 警告 | 是不是只下了一個指令 | Codex 的 token 用量在回合結束才寫檔，hook 有一回合時差——**再下一個指令**，第二回合就會觸發 |
+| 11 | 舊 terminal 的 tab 名字凍結 | 那個 terminal 是不是安裝前開的 | 正常——舊 watcher 握著舊檔案繼續跑，關掉重開就好 |
 
 ## Debug 時值得留的證據（開 issue 前收集）
 

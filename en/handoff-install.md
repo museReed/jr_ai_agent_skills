@@ -68,8 +68,8 @@ Use a "shrunken window" to make the warning appear early — no need to actually
 1. Ask the user to open a **new terminal** and start a test session inside a git repo:
    - Claude Code: `CONTEXT_MONITOR_TEST_WINDOW=30000 claude`
    - Codex: `CODEX_TEST_MAX_CONTEXT_WINDOW=20000 codex`
-2. Ask it to do 1–2 hands-on things (e.g. "list the files in this folder")
-3. Expected: the AI starts saying `⚠️ Context 已用 …（測試模式）` (context warning, test mode) and offers to write a handoff document — **seeing the warning = hook verified**; the session can be closed right away, no need to finish the handoff
+2. Ask it to do 1–2 hands-on things (e.g. "list the files in this folder"), then give it a **second command** (e.g. "list them again")
+3. Expected: **from the second command's turn onward**, the AI starts saying `⚠️ Context 已用 …（測試模式）` (context warning, test mode) and offers to write a handoff document — **seeing the warning = hook verified**; the session can be closed right away, no need to finish the handoff
 4. (Optional) Let it finish: check that a file appears under `docs/handoff/`, a commit exists, and the session is renamed to `📦 …`
 5. Remind the user: just close the test session when done; normal sessions without the env var behave exactly as before
 
@@ -90,6 +90,7 @@ In any normal session, type "write a handoff" → it should produce the document
   hook's stdin — it does not guess the file by mtime (which picks the wrong file with concurrent
   sessions; that is a bug we actually hit and fixed)
 - The Codex side prefers the `token_count` events in the rollout JSONL; when unavailable it falls back to
+- Codex writes `token_count` at the **end of each turn**, while the hook runs mid-turn → the warning lags by one turn; in tests it shows up on the second command (imperceptible in real use — hitting 70% is never a one-turn margin)
   "tool call count ≈ usage" estimation
 - Test knobs: `CONTEXT_MONITOR_TEST_WINDOW` (Claude) / `CODEX_TEST_MAX_CONTEXT_WINDOW` (Codex) —
   they only affect the session launched with the variable set
