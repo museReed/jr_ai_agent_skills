@@ -43,7 +43,7 @@ Key rules:
 
 ## When NOT to Use
 
-- Session 剛開始（< 3 輪 tool call），資訊不足
+- Hook 第一句話就會觸發命名——手動觸發前先確認 hook 沒有正在處理
 - 用戶已手動指定名稱
 
 ## Execution Flow
@@ -80,5 +80,5 @@ rm -f /tmp/claude-session-namer/$PPID.default
 |---------|-------------|-----|
 | 用最新一句話命名 | 不代表整個 session 的目的 | 回顧整個對話脈絡再決定 |
 | 名稱超過 40 字元 | sidebar 顯示被截斷 | 精簡敘述，技術名詞可縮寫 |
-| 忘記清除 default marker | hook 會持續每 20 次 tool call 重新提醒 | 步驟 2 的 rm 不可省略 |
+| 忘記清除 default marker | hook 會持續每 10 次 tool call 重新提醒 | 步驟 2 的 rm 不可省略 |
 | 分多個 Bash call 執行 | 浪費 tool call 額度 | 合併成一條指令 |

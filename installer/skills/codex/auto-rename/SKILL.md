@@ -44,7 +44,7 @@ Key rules:
 
 ## When NOT to Use
 
-- Session 剛開始（< 3 輪 tool call），資訊不足
+- Hook 第一句話就會觸發命名——手動觸發前先確認 hook 沒有正在處理
 - 用戶已手動指定名稱
 
 ## Execution Flow

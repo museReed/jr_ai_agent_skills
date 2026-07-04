@@ -1,23 +1,21 @@
 #!/bin/bash
-# PostToolUse hook: auto-name Claude Code sessions & terminal tabs.
-#   count=3  → write git branch as default name (deterministic, no LLM)
-#   count=5  → inject additionalContext asking the model for a better name
-#   every 20 → retry if the model hasn't improved the default name
+# Session auto-namer for Claude Code. Registered on two hook events:
+#   UserPromptSubmit ("prompt" arg) → prompt#1: ask the model to name the
+#     session from the user's first message
+#   PostToolUse (no arg) → count=5: re-evaluate the name against the
+#     conversation so far; every 10 calls after that: retry if no AI name landed
 #
 # Display paths (in priority order):
 #   1. $AI_TAB_SYNC_FILE set (launched via myclaude wrapper) → watcher owns the tab
 #   2. no wrapper → this hook refreshes the tab title by writing OSC directly to
-#      the controlling tty on every tool call. Requires
+#      the controlling tty on every event. Requires
 #      CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 so the built-in title doesn't fight back.
+
+EVENT="${1:-tool}"
 
 CLAUDE_PID=$PPID
 COUNTER_DIR="/tmp/claude-session-namer"
 mkdir -p "$COUNTER_DIR"
-COUNTER_FILE="$COUNTER_DIR/$CLAUDE_PID"
-
-COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
-COUNT=$((COUNT + 1))
-echo "$COUNT" > "$COUNTER_FILE"
 
 # Terminal shell PID (claude's parent) keys the session-name file
 TERMINAL_PID=$(ps -o ppid= -p "$CLAUDE_PID" 2>/dev/null | tr -d ' ')
@@ -25,7 +23,7 @@ NAMES_DIR="$HOME/.claude/session-names"
 SESSION_FILE="$NAMES_DIR/${TERMINAL_PID}.txt"
 DEFAULT_MARKER="$COUNTER_DIR/${CLAUDE_PID}.default"
 
-# No-wrapper display path: refresh tab title from saved name on every tool call.
+# No-wrapper display path: refresh tab title from saved name on every event.
 # Newer Claude Code strips ESC bytes from tool stdout, so OSC must go straight
 # to the tty device.
 if [ -z "${AI_TAB_SYNC_FILE:-}" ]; then
@@ -35,43 +33,42 @@ if [ -z "${AI_TAB_SYNC_FILE:-}" ]; then
   fi
 fi
 
-set_session_name() {
-  local name="$1"
-  mkdir -p "$NAMES_DIR"
-  echo "$name" > "$SESSION_FILE"
-  if [ -n "${AI_TAB_SYNC_FILE:-}" ]; then
-    echo "$name" > "$AI_TAB_SYNC_FILE" 2>/dev/null || true
-  fi
+if [ -n "${AI_TAB_SYNC_FILE:-}" ]; then
+  WRITE_CMD="echo '{名稱}' > $AI_TAB_SYNC_FILE && mkdir -p ~/.claude/session-names && echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && rm -f /tmp/claude-session-namer/${CLAUDE_PID}.default"
+else
+  WRITE_CMD="mkdir -p ~/.claude/session-names && echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && rm -f /tmp/claude-session-namer/${CLAUDE_PID}.default"
+fi
+
+RULES="命名規則：\n- 格式：{emoji} {中文敘述}，emoji 取代英文動詞，技術名詞可保留英文\n- 總長度 ≤ 40 字元\n- emoji 只能從這 8 個選：🏗️ build/implement/refactor、🔧 fix、🐛 debug、📐 plan/design、📋 review/audit、💬 discuss、⛴️ pilot/spike、🔍 research"
+
+emit_naming_request() { # $1=hookEventName  $2=lead-in instruction
+  cat <<EOF
+{"hookSpecificOutput":{"hookEventName":"$1","additionalContext":"[session-namer] $2\n\n${RULES}\n\n執行指令：\n${WRITE_CMD}"}}
+EOF
 }
 
-# count=3: git branch (or dirname) as immediate default
-if [ "$COUNT" -eq 3 ]; then
-  SHELL_CWD=$(lsof -d cwd -p "$TERMINAL_PID" -Fn 2>/dev/null | grep '^n' | head -1 | sed 's|^n||')
-  [ -z "$SHELL_CWD" ] && SHELL_CWD=$(pwd)
-  BRANCH=$(git -C "$SHELL_CWD" branch --show-current 2>/dev/null)
-  if [ -n "$BRANCH" ]; then
-    NAME=$(echo "$BRANCH" | sed 's|^feature/||;s|^fix/||;s|^hotfix/||')
-  else
-    NAME=$(basename "$SHELL_CWD")
+# UserPromptSubmit: name the session right after the user's first message
+if [ "$EVENT" = "prompt" ]; then
+  PROMPT_FILE="$COUNTER_DIR/${CLAUDE_PID}.prompts"
+  PCOUNT=$(cat "$PROMPT_FILE" 2>/dev/null || echo 0)
+  PCOUNT=$((PCOUNT + 1))
+  echo "$PCOUNT" > "$PROMPT_FILE"
+  if [ "$PCOUNT" -eq 1 ]; then
+    touch "$DEFAULT_MARKER"
+    emit_naming_request "UserPromptSubmit" "請依據用戶這句話的任務意圖為此 session 命名並寫入檔案。"
   fi
-  set_session_name "$NAME"
-  touch "$DEFAULT_MARKER"
+  exit 0
 fi
 
-NEEDS_BETTER_NAME=false
+# PostToolUse: count tool calls
+COUNTER_FILE="$COUNTER_DIR/$CLAUDE_PID"
+COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
+COUNT=$((COUNT + 1))
+echo "$COUNT" > "$COUNTER_FILE"
+
 if [ "$COUNT" -eq 5 ]; then
-  NEEDS_BETTER_NAME=true
-elif [ "$COUNT" -gt 5 ] && [ $(( COUNT % 20 )) -eq 0 ] && [ -f "$DEFAULT_MARKER" ]; then
-  NEEDS_BETTER_NAME=true
-fi
-
-if [ "$NEEDS_BETTER_NAME" = true ]; then
-  if [ -n "${AI_TAB_SYNC_FILE:-}" ]; then
-    WRITE_CMD="echo '{名稱}' > $AI_TAB_SYNC_FILE && mkdir -p ~/.claude/session-names && echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && rm -f /tmp/claude-session-namer/${CLAUDE_PID}.default"
-  else
-    WRITE_CMD="mkdir -p ~/.claude/session-names && echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && rm -f /tmp/claude-session-namer/${CLAUDE_PID}.default"
-  fi
-  cat <<EOF
-{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"[session-namer] 請為此 session 命名並寫入檔案。\n\n命名規則：\n- 格式：{emoji} {中文敘述}，emoji 取代英文動詞，技術名詞可保留英文\n- 總長度 ≤ 40 字元\n- emoji 只能從這 8 個選：🏗️ build/implement/refactor、🔧 fix、🐛 debug、📐 plan/design、📋 review/audit、💬 discuss、⛴️ pilot/spike、🔍 research\n- 根據對話「主要目的」命名，不是最新一句話\n\n執行指令：\n${WRITE_CMD}"}}
-EOF
+  # One-time re-evaluation now that there is real conversation to judge from
+  emit_naming_request "PostToolUse" "請根據到目前為止的討論重新評估 session 名稱：若現有名稱仍準確，用原名稱再執行一次指令即可；否則換更貼切的名字。"
+elif [ "$COUNT" -gt 5 ] && [ $(( COUNT % 10 )) -eq 0 ] && [ -f "$DEFAULT_MARKER" ]; then
+  emit_naming_request "PostToolUse" "此 session 尚未命名，請為它命名並寫入檔案。"
 fi

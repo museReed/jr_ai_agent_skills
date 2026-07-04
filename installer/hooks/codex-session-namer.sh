@@ -1,17 +1,18 @@
 #!/bin/bash
-# PostToolUse hook for Codex: auto-name sessions after N tool calls.
+# Session auto-namer for Codex. Registered on two hook events:
+#   UserPromptSubmit ("prompt" arg) → prompt#1: ask the model to name the
+#     session from the user's first message
+#   PostToolUse (no arg) → count=5: re-evaluate the name against the
+#     conversation so far; every 10 calls after that: retry if no AI name landed
 # Reads session_id from stdin JSON (Codex passes it to all hooks).
-#
-#   count=3  → write git branch as default name (hook writes SQLite directly)
-#   count=5  → inject additionalContext asking the model for a better name
-#   every 20 → retry if the model hasn't improved the default name
 #
 # Sandbox note: the Codex MODEL cannot write ~/.codex/state_*.sqlite or
 # ~/.ai-session-names/ outside a trusted cwd ("attempt to write a readonly
 # database"). Hooks run unsandboxed, so the model only writes the chosen name
 # to a /tmp relay file (always writable); this hook applies it to SQLite
-# (sidebar name) + the tab-sync file on the next PostToolUse event.
+# (sidebar name) + the tab-sync file on the next hook event.
 
+EVENT="${1:-tool}"
 STDIN_JSON=$(cat)
 
 CODEX_PID=$PPID
@@ -36,7 +37,9 @@ apply_name() {
   fi
 }
 
-# Apply a model-chosen name left in the relay file (sandbox-safe handoff)
+# Apply a model-chosen name left in the relay file (sandbox-safe handoff).
+# Runs on every hook event so chat-only sessions still get their name applied
+# on the next prompt.
 if [ -f "$RELAY_FILE" ]; then
   NAME=$(head -1 "$RELAY_FILE" | cut -c1-120)
   rm -f "$RELAY_FILE"
@@ -46,36 +49,13 @@ if [ -f "$RELAY_FILE" ]; then
   fi
 fi
 
-COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
-COUNT=$((COUNT + 1))
-echo "$COUNT" > "$COUNTER_FILE"
-
-# count=3: git branch (or dirname) as immediate default
-if [ "$COUNT" -eq 3 ]; then
-  BRANCH=$(git branch --show-current 2>/dev/null)
-  if [ -n "$BRANCH" ]; then
-    NAME=$(echo "$BRANCH" | sed 's|^feature/||;s|^fix/||;s|^hotfix/||')
-  else
-    NAME=$(basename "$(pwd)")
-  fi
-  apply_name "$NAME"
-  touch "$DEFAULT_MARKER"
-fi
-
-NEEDS_BETTER_NAME=false
-if [ "$COUNT" -eq 5 ]; then
-  NEEDS_BETTER_NAME=true
-elif [ "$COUNT" -gt 5 ] && [ $(( COUNT % 20 )) -eq 0 ] && [ -f "$DEFAULT_MARKER" ]; then
-  NEEDS_BETTER_NAME=true
-fi
-
-if [ "$NEEDS_BETTER_NAME" = true ]; then
-  RELAY_FILE="$RELAY_FILE" python3 <<'PYEOF'
+emit_naming_request() { # $1=hookEventName  $2=lead-in instruction
+  HOOK_EVENT="$1" LEAD_IN="$2" RELAY_FILE="$RELAY_FILE" python3 <<'PYEOF'
 import json, os, sys
 
 relay = os.environ["RELAY_FILE"]
 ctx = (
-    "[session-namer] 請為此 session 命名。\n\n"
+    f"[session-namer] {os.environ['LEAD_IN']}\n\n"
     "命名規則：\n"
     "- 格式：{emoji} {中文敘述}，總長度 ≤ 40 字元，技術名詞保留英文\n"
     "- emoji 只能從這 8 個選：🏗️ build/implement/refactor、🔧 fix、🐛 debug、"
@@ -84,7 +64,32 @@ ctx = (
     f"執行指令（只需這一步，hook 會自動同步 sidebar 與 terminal tab）：\n"
     f"mkdir -p /tmp/codex-session-namer && echo '{{名稱}}' > {relay}"
 )
-obj = {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": ctx}}
+obj = {"hookSpecificOutput": {"hookEventName": os.environ["HOOK_EVENT"], "additionalContext": ctx}}
 json.dump(obj, sys.stdout, ensure_ascii=False)
 PYEOF
+}
+
+# UserPromptSubmit: name the session right after the user's first message
+if [ "$EVENT" = "prompt" ]; then
+  PROMPT_FILE="$COUNTER_DIR/${CODEX_PID}.prompts"
+  PCOUNT=$(cat "$PROMPT_FILE" 2>/dev/null || echo 0)
+  PCOUNT=$((PCOUNT + 1))
+  echo "$PCOUNT" > "$PROMPT_FILE"
+  if [ "$PCOUNT" -eq 1 ]; then
+    touch "$DEFAULT_MARKER"
+    emit_naming_request "UserPromptSubmit" "請依據用戶這句話的任務意圖為此 session 命名。"
+  fi
+  exit 0
+fi
+
+# PostToolUse: count tool calls
+COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
+COUNT=$((COUNT + 1))
+echo "$COUNT" > "$COUNTER_FILE"
+
+if [ "$COUNT" -eq 5 ]; then
+  # One-time re-evaluation now that there is real conversation to judge from
+  emit_naming_request "PostToolUse" "請根據到目前為止的討論重新評估 session 名稱：若現有名稱仍準確，寫入原名稱即可；否則換更貼切的名字。"
+elif [ "$COUNT" -gt 5 ] && [ $(( COUNT % 10 )) -eq 0 ] && [ -f "$DEFAULT_MARKER" ]; then
+  emit_naming_request "PostToolUse" "此 session 尚未命名，請為它命名。"
 fi

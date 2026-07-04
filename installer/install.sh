@@ -49,16 +49,17 @@ if os.path.exists(path):
     with open(path) as f:
         cfg = json.load(f)
 hooks = cfg.setdefault("hooks", {})
-ptu = hooks.setdefault("PostToolUse", [])
-cmd = f'bash {os.path.expanduser("~/.claude/hooks/session-auto-namer.sh")}'
+base = f'bash {os.path.expanduser("~/.claude/hooks/session-auto-namer.sh")}'
 # drop any stale session-auto-namer entries, then add ours
-for grp in ptu:
-    grp["hooks"] = [h for h in grp.get("hooks", []) if "session-auto-namer.sh" not in h.get("command", "")]
-ptu[:] = [g for g in ptu if g.get("hooks")]
-ptu.append({"hooks": [{"type": "command", "command": cmd, "timeout": 3}]})
+for event, cmd in [("PostToolUse", base), ("UserPromptSubmit", f"{base} prompt")]:
+    lst = hooks.setdefault(event, [])
+    for grp in lst:
+        grp["hooks"] = [h for h in grp.get("hooks", []) if "session-auto-namer.sh" not in h.get("command", "")]
+    lst[:] = [g for g in lst if g.get("hooks")]
+    lst.append({"hooks": [{"type": "command", "command": cmd, "timeout": 3}]})
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
-print("  registered hook in ~/.claude/settings.json")
+print("  registered PostToolUse + UserPromptSubmit hooks in ~/.claude/settings.json")
 PYEOF
 fi
 
@@ -81,15 +82,16 @@ if os.path.exists(path):
     with open(path) as f:
         cfg = json.load(f)
 hooks = cfg.setdefault("hooks", {})
-ptu = hooks.setdefault("PostToolUse", [])
-cmd = f'bash {os.path.expanduser("~/.codex/hooks/codex-session-namer.sh")}'
-for grp in ptu:
-    grp["hooks"] = [h for h in grp.get("hooks", []) if "codex-session-namer.sh" not in h.get("command", "")]
-ptu[:] = [g for g in ptu if g.get("hooks")]
-ptu.append({"hooks": [{"type": "command", "command": cmd, "timeout": 3}]})
+base = f'bash {os.path.expanduser("~/.codex/hooks/codex-session-namer.sh")}'
+for event, cmd in [("PostToolUse", base), ("UserPromptSubmit", f"{base} prompt")]:
+    lst = hooks.setdefault(event, [])
+    for grp in lst:
+        grp["hooks"] = [h for h in grp.get("hooks", []) if "codex-session-namer.sh" not in h.get("command", "")]
+    lst[:] = [g for g in lst if g.get("hooks")]
+    lst.append({"hooks": [{"type": "command", "command": cmd, "timeout": 3}]})
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
-print("  registered hook in ~/.codex/hooks.json")
+print("  registered PostToolUse + UserPromptSubmit hooks in ~/.codex/hooks.json")
 PYEOF
 fi
 
@@ -98,4 +100,4 @@ echo "Done. Add these aliases to your shell rc (~/.zshrc or ~/.bashrc):"
 [ "$TARGET" != "codex" ]  && echo "  alias claude='\$HOME/.local/bin/myclaude'"
 [ "$TARGET" != "claude" ] && echo "  alias codex='\$HOME/.local/bin/mycodex'"
 echo
-echo "Then restart your terminal. Tab titles auto-update after ~3-5 tool calls."
+echo "Then restart your terminal. Tab titles auto-update right after your first message."
