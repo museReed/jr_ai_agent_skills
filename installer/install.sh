@@ -32,12 +32,15 @@ install_file "$SRC_DIR/bin/ai-tab-sync.sh" "$HOME/.local/bin/ai-tab-sync.sh" 755
 
 # --- Claude Code ---
 if [ "$TARGET" != "codex" ]; then
-  echo "[2/3] Claude Code: hook + skill"
+  echo "[2/3] Claude Code: hooks + skills"
   install_file "$SRC_DIR/hooks/session-auto-namer.sh" "$HOME/.claude/hooks/session-auto-namer.sh" 755
-  mkdir -p "$HOME/.claude/skills/auto-rename"
-  backup "$HOME/.claude/skills/auto-rename/SKILL.md"
-  cp "$SRC_DIR/skills/claude/auto-rename/SKILL.md" "$HOME/.claude/skills/auto-rename/SKILL.md"
-  echo "  installed: ~/.claude/skills/auto-rename/SKILL.md"
+  install_file "$SRC_DIR/hooks/context-monitor.sh" "$HOME/.claude/hooks/context-monitor.sh" 755
+  for skill in auto-rename handoff; do
+    mkdir -p "$HOME/.claude/skills/$skill"
+    backup "$HOME/.claude/skills/$skill/SKILL.md"
+    cp -R "$SRC_DIR/skills/claude/$skill/." "$HOME/.claude/skills/$skill/"
+    echo "  installed: ~/.claude/skills/$skill/"
+  done
 
   backup "$HOME/.claude/settings.json"
   python3 - "$HOME/.claude/settings.json" <<'PYEOF'
@@ -49,28 +52,42 @@ if os.path.exists(path):
     with open(path) as f:
         cfg = json.load(f)
 hooks = cfg.setdefault("hooks", {})
-base = f'bash {os.path.expanduser("~/.claude/hooks/session-auto-namer.sh")}'
-# drop any stale session-auto-namer entries, then add ours
-for event, cmd in [("PostToolUse", base), ("UserPromptSubmit", f"{base} prompt")]:
+namer = f'bash {os.path.expanduser("~/.claude/hooks/session-auto-namer.sh")}'
+monitor = f'bash {os.path.expanduser("~/.claude/hooks/context-monitor.sh")}'
+# drop any stale entries for our scripts, then add ours
+# (match "/context-monitor.sh" with a slash so it can't hit codex-context-monitor.sh)
+for event, marker, cmd in [
+    ("PostToolUse", "session-auto-namer.sh", namer),
+    ("UserPromptSubmit", "session-auto-namer.sh", f"{namer} prompt"),
+    ("PostToolUse", "/context-monitor.sh", monitor),
+]:
     lst = hooks.setdefault(event, [])
     for grp in lst:
-        grp["hooks"] = [h for h in grp.get("hooks", []) if "session-auto-namer.sh" not in h.get("command", "")]
+        grp["hooks"] = [h for h in grp.get("hooks", []) if marker not in h.get("command", "")]
     lst[:] = [g for g in lst if g.get("hooks")]
     lst.append({"hooks": [{"type": "command", "command": cmd, "timeout": 3}]})
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
-print("  registered PostToolUse + UserPromptSubmit hooks in ~/.claude/settings.json")
+print("  registered session-namer (PostToolUse + UserPromptSubmit) + context-monitor (PostToolUse) in ~/.claude/settings.json")
 PYEOF
 fi
 
 # --- Codex ---
 if [ "$TARGET" != "claude" ]; then
-  echo "[3/3] Codex: hook + skill"
+  echo "[3/3] Codex: hooks + skills"
   install_file "$SRC_DIR/hooks/codex-session-namer.sh" "$HOME/.codex/hooks/codex-session-namer.sh" 755
-  mkdir -p "$HOME/.codex/skills/auto-rename"
-  backup "$HOME/.codex/skills/auto-rename/SKILL.md"
-  cp "$SRC_DIR/skills/codex/auto-rename/SKILL.md" "$HOME/.codex/skills/auto-rename/SKILL.md"
-  echo "  installed: ~/.codex/skills/auto-rename/SKILL.md"
+  install_file "$SRC_DIR/hooks/codex-context-monitor.sh" "$HOME/.codex/hooks/codex-context-monitor.sh" 755
+  for skill in auto-rename handoff; do
+    mkdir -p "$HOME/.codex/skills/$skill"
+    backup "$HOME/.codex/skills/$skill/SKILL.md"
+    cp -R "$SRC_DIR/skills/codex/$skill/." "$HOME/.codex/skills/$skill/"
+    echo "  installed: ~/.codex/skills/$skill/"
+  done
+  mkdir -p "$HOME/.codex/skills/_shared"
+  backup "$HOME/.codex/skills/_shared/codex-session-rename.md"
+  cp "$SRC_DIR/skills/codex/_shared/codex-session-rename.md" "$HOME/.codex/skills/_shared/codex-session-rename.md" 2>/dev/null \
+    || echo "  skipped: ~/.codex/skills/_shared/codex-session-rename.md（已存在同內容 symlink）"
+  echo "  installed: ~/.codex/skills/_shared/codex-session-rename.md"
 
   backup "$HOME/.codex/hooks.json"
   python3 - "$HOME/.codex/hooks.json" <<'PYEOF'
@@ -82,16 +99,21 @@ if os.path.exists(path):
     with open(path) as f:
         cfg = json.load(f)
 hooks = cfg.setdefault("hooks", {})
-base = f'bash {os.path.expanduser("~/.codex/hooks/codex-session-namer.sh")}'
-for event, cmd in [("PostToolUse", base), ("UserPromptSubmit", f"{base} prompt")]:
+namer = f'bash {os.path.expanduser("~/.codex/hooks/codex-session-namer.sh")}'
+monitor = f'bash {os.path.expanduser("~/.codex/hooks/codex-context-monitor.sh")}'
+for event, marker, cmd in [
+    ("PostToolUse", "codex-session-namer.sh", namer),
+    ("UserPromptSubmit", "codex-session-namer.sh", f"{namer} prompt"),
+    ("PostToolUse", "codex-context-monitor.sh", monitor),
+]:
     lst = hooks.setdefault(event, [])
     for grp in lst:
-        grp["hooks"] = [h for h in grp.get("hooks", []) if "codex-session-namer.sh" not in h.get("command", "")]
+        grp["hooks"] = [h for h in grp.get("hooks", []) if marker not in h.get("command", "")]
     lst[:] = [g for g in lst if g.get("hooks")]
     lst.append({"hooks": [{"type": "command", "command": cmd, "timeout": 3}]})
 with open(path, "w") as f:
     json.dump(cfg, f, indent=2, ensure_ascii=False)
-print("  registered PostToolUse + UserPromptSubmit hooks in ~/.codex/hooks.json")
+print("  registered session-namer (PostToolUse + UserPromptSubmit) + context-monitor (PostToolUse) in ~/.codex/hooks.json")
 PYEOF
 fi
 
@@ -101,3 +123,5 @@ echo "Done. Add these aliases to your shell rc (~/.zshrc or ~/.bashrc):"
 [ "$TARGET" != "claude" ] && echo "  alias codex='\$HOME/.local/bin/mycodex'"
 echo
 echo "Then restart your terminal. Tab titles auto-update right after your first message."
+echo
+echo "Next: run ./verify.sh (from this directory) to check the install end-to-end."

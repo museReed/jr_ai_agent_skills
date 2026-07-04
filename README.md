@@ -36,6 +36,8 @@ Read jr_ai_agent_skills/zh-Hant/structured-questions-install.md and execute Sect
 
 其他 skill 同理，換檔名即可。
 
+裝完 auto-rename / handoff 後，跑 `installer/verify.sh` 做端到端驗證；出問題見 `installer/TROUBLESHOOTING.md`。
+
 ### 適用工具
 
 | 工具 | 支援 |
@@ -77,6 +79,8 @@ Read jr_ai_agent_skills/zh-Hans/structured-questions-install.md and execute Sect
 
 其他 skill 同理，换文件名即可。
 
+装完 auto-rename / handoff 后，跑 `installer/verify.sh` 做端到端验证；出问题见 `installer/TROUBLESHOOTING.md`。
+
 ### 适用工具
 
 | 工具 | 支持 |
@@ -117,6 +121,8 @@ Read jr_ai_agent_skills/en/structured-questions-install.md and execute Section B
 ```
 
 Same pattern for other skills — just swap the filename.
+
+After installing auto-rename / handoff, run `installer/verify.sh` for an end-to-end check; see `installer/TROUBLESHOOTING.md` if anything fails.
 
 ### Supported Tools
 
