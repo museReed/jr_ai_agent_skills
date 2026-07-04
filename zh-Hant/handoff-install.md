@@ -150,29 +150,23 @@ Create the file `~/.claude/hooks/context-monitor.sh` with the following content:
 #!/bin/bash
 # Context Monitor Hook — reads session JSONL to get real token usage
 # Triggered on PostToolUse to warn when context exceeds threshold
+#
+# How it works:
+#   1. Reads transcript_path from the hook input JSON on stdin (exact current-session JSONL;
+#      guessing by mtime breaks with concurrent sessions)
+#   2. Reads the last assistant message's usage.input_tokens + cache tokens
+#   3. If total > THRESHOLD, tells model to read and follow handoff skill
 
-CLAUDE_PROJECTS_DIR="${HOME}/.claude/projects"
-THRESHOLD=140000  # 70% of 200k context window
-MAX_CONTEXT=200000
+JSONL=$(python3 -c "import json,sys; print(json.load(sys.stdin).get('transcript_path',''))" 2>/dev/null)
 
-# Map CWD to Claude's project directory format: /a/b/c → -a-b-c
-PROJECT_KEY=$(echo "${CWD:-$PWD}" | tr '/' '-')
-PROJECT_DIR="${CLAUDE_PROJECTS_DIR}/${PROJECT_KEY}"
+[ -f "$JSONL" ] || exit 0
 
-[ -d "$PROJECT_DIR" ] || exit 0
-
-# Find most recently modified .jsonl (current session)
-JSONL=$(find "$PROJECT_DIR" -maxdepth 1 -name "*.jsonl" -newer /tmp/.claude-context-monitor-start 2>/dev/null | head -1)
-if [ -z "$JSONL" ]; then
-  JSONL=$(ls -t "$PROJECT_DIR"/*.jsonl 2>/dev/null | head -1)
-fi
-
-[ -z "$JSONL" ] && exit 0
-
-# Read last 30 lines for performance
-TOTAL=$(tail -30 "$JSONL" | python3 -c "
+# Read last 30 lines for performance (avoid scanning multi-MB files)
+# Outputs "TOTAL MODEL" — model taken from the same assistant message as the max usage
+read -r TOTAL MODEL <<EOF
+$(tail -30 "$JSONL" | python3 -c "
 import json, sys
-best = 0
+best, model = 0, ''
 for line in sys.stdin:
     try:
         d = json.loads(line)
@@ -181,19 +175,34 @@ for line in sys.stdin:
             t = u.get('input_tokens', 0) + u.get('cache_creation_input_tokens', 0) + u.get('cache_read_input_tokens', 0)
             if t > best:
                 best = t
+                model = d.get('message', {}).get('model', '') or ''
     except (json.JSONDecodeError, KeyError):
         pass
-print(best)
+print(best, model)
 " 2>/dev/null)
+EOF
 
 [ -z "$TOTAL" ] && exit 0
 [ "$TOTAL" -eq 0 ] 2>/dev/null && exit 0
 
+# Context window by model: Claude Code marks 1M long-context mode with a [1m] suffix
+# (e.g. claude-sonnet-4-5[1m]); everything else is the 200k default.
+case "$MODEL" in
+  *\[1m\]*)  MAX_CONTEXT=1000000 ;;
+  *fable*)   MAX_CONTEXT=1000000 ;;  # Fable 5 default window is 1M (no [1m] marker)
+  *)         MAX_CONTEXT=200000 ;;
+esac
+THRESHOLD=$((MAX_CONTEXT * 70 / 100))
+
 PCT=$((TOTAL * 100 / MAX_CONTEXT))
 
 if [ "$TOTAL" -gt "$THRESHOLD" ]; then
-  MSG="⚠️ Context 已用 ~${TOTAL} tokens (${PCT}%)。請立即：(1) 寫 docs/handoff/$(date +%F)-{topic}.md (2) 提示用戶開新 session 繼續工作。"
-  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}' "$MSG"
+  python3 -c "
+import json, sys
+ctx = '⚠️ Context 已用 ~${TOTAL} tokens (${PCT}%)。請立即 Read and follow .claude/skills/handoff/SKILL.md 寫交接文件。'
+obj = {'hookSpecificOutput': {'hookEventName': 'PostToolUse', 'additionalContext': ctx}}
+json.dump(obj, sys.stdout, ensure_ascii=False)
+"
 fi
 ```
 
@@ -212,17 +221,6 @@ chmod +x ~/.claude/hooks/context-monitor.sh
 ```json
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "touch /tmp/.claude-context-monitor-start",
-            "timeout": 2
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "hooks": [
@@ -240,17 +238,9 @@ chmod +x ~/.claude/hooks/context-monitor.sh
 
 **情況 B — 檔案存在但沒有 `hooks` key**：在 JSON 頂層加入整個 `"hooks"` object（同情況 A 的 hooks 部分）。
 
-**情況 C — 檔案存在且已有 `hooks`**：需要加入兩個 hook entry：
+**情況 C — 檔案存在且已有 `hooks`**：需要加入一個 hook entry：
 
-1. **SessionStart hook**（context monitor 的 session 起點標記）：
-   - 如果 `hooks.SessionStart` 不存在 → 加入整個 `"SessionStart"` key（同情況 A）
-   - 如果已存在 → 在 `hooks.SessionStart[0].hooks` array 末尾 append：
-     ```json
-     { "type": "command", "command": "touch /tmp/.claude-context-monitor-start", "timeout": 2 }
-     ```
-   - **衝突檢查**：如果 command 中已包含 `claude-context-monitor-start`，跳過
-
-2. **PostToolUse hook**（context monitor 本體）：
+1. **PostToolUse hook**（context monitor 本體）：
    - 如果 `hooks.PostToolUse` 不存在 → 加入整個 `"PostToolUse"` key（同情況 A）
    - 如果已存在 → 在 `hooks.PostToolUse[0].hooks` array 末尾 append：
      ```json
