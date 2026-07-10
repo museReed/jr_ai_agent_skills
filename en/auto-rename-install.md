@@ -94,7 +94,8 @@ PY
 - **Only takes effect for terminals opened after saving** → have the user open a new terminal once it's set
 - Configure every editor you use (each has its own settings.json)
 - Fallback: if none of the paths above exist, or python errors out because of JSONC comments → ask the user to
-  Cmd+Shift+P → "Open User Settings (JSON)" and add that line manually
+  Cmd+Shift+P → "Open User Settings (JSON)" and add that line manually. **On error the original
+  file is left untouched** (json.load fails during the read, before any write), so the manual path is safe
 
 ## E2E Verification (the AI agent MUST actively walk the user through this — do not skip)
 

@@ -96,7 +96,8 @@ PY
 - **只對存檔後新開的 terminal 生效** → 設完請用戶新開一個 terminal
 - 用哪個編輯器就設哪個（各有各的 settings.json）
 - Fallback：上述路徑都找不到、或 python 因 JSONC 註解報錯 → 請用戶
-  Cmd+Shift+P → "Open User Settings (JSON)" 手動加那一行
+  Cmd+Shift+P → "Open User Settings (JSON)" 手動加那一行。**報錯時原檔不會被動到**
+  （json.load 在讀取階段就失敗、還沒寫入），放心走手動
 
 ## E2E 驗證（AI agent 必須主動引導用戶完成，不可跳過）
 
