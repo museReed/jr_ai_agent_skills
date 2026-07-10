@@ -20,6 +20,8 @@
 | 9 | `install.sh` 中途失敗 | 錯誤訊息是不是 JSON 相關 | `~/.claude/settings.json` / `~/.codex/hooks.json` 可能本來就不是合法 JSON（手改壞的）。先 `python3 -m json.tool <檔案>` 找出壞處修好，再重跑 install.sh |
 | 10 | Codex 測試模式下沒看到 context-monitor 警告 | 是不是只下了一個指令 | Codex 的 token 用量在回合結束才寫檔，hook 有一回合時差——**再下一個指令**，第二回合就會觸發 |
 | 11 | 舊 terminal 的 tab 名字凍結 | 那個 terminal 是不是安裝前開的 | 正常——舊 watcher 握著舊檔案繼續跑，關掉重開就好 |
+| 12 | 改名其實成功，但 Cursor / VS Code 看不到任何 tab（只開一個終端時） | 該編輯器 `settings.json` 的 `terminal.integrated.tabs.hideCondition`（預設 `singleTerminal`：只有一個終端時整個 tab 清單隱藏，名稱沒地方顯示） | 設 `"terminal.integrated.tabs.hideCondition": "never"`。判斷「其實成功」：`cat ~/.ai-session-names/*.txt` 有名稱、sqlite `threads.title` 已更新，就是純顯示問題 |
+| 13 | Codex：tab 名字閃一下，1 秒內又跳回資料夾名（如 `job`） | `codex doctor` 的 `title` 是不是 `enabled`（Codex 內建 terminal title 預設含 cwd，每回合覆寫 watcher 送的 OSC；`mycodex` 目前沒有像 `myclaude` 的 `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1` 那樣先關掉它） | `~/.codex/config.toml` 加 `[tui]` 區段、設 `terminal_title = []`，重啟 codex。用 `codex doctor` 確認顯示 `title: disabled`（codex-cli 0.142.5 實測） |
 
 ## Debug 時值得留的證據（開 issue 前收集）
 
