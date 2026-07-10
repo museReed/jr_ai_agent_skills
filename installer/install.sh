@@ -118,7 +118,8 @@ PYEOF
 fi
 
 echo
-echo "Done. Add these aliases to your shell rc (~/.zshrc or ~/.bashrc):"
+echo "Done. The AI guiding your install should add these aliases to your shell rc"
+echo "(~/.zshrc or ~/.bashrc) for you. If it didn't, add them manually as a fallback:"
 [ "$TARGET" != "codex" ]  && echo "  alias claude='\$HOME/.local/bin/myclaude'"
 [ "$TARGET" != "claude" ] && echo "  alias codex='\$HOME/.local/bin/mycodex'"
 echo
