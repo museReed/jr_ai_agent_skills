@@ -33,10 +33,13 @@ cd jr_ai_agent_skills/installer
 ./install.sh claude
 ```
 
-Then add the alias to your shell rc (`~/.zshrc` or `~/.bashrc`):
+Then write the alias into your shell rc (**the AI must actually run this write, not just print it for the user to paste**; it is idempotent and won't add a duplicate if already present):
 
 ```bash
-alias claude='$HOME/.local/bin/myclaude'
+RC="$HOME/.zshrc"; case "$SHELL" in *bash*) RC="$HOME/.bashrc";; esac
+grep -q "alias claude=.*myclaude" "$RC" 2>/dev/null \
+  || echo "alias claude='\$HOME/.local/bin/myclaude'" >> "$RC"
+echo "Wrote to $RC — restart the terminal or source it; the alias not taking effect = the feature not working"
 ```
 
 When done, jump to "Editor settings".
@@ -48,10 +51,13 @@ cd jr_ai_agent_skills/installer
 ./install.sh codex
 ```
 
-alias:
+alias (**the AI runs this write directly**, idempotent):
 
 ```bash
-alias codex='$HOME/.local/bin/mycodex'
+RC="$HOME/.zshrc"; case "$SHELL" in *bash*) RC="$HOME/.bashrc";; esac
+grep -q "alias codex=.*mycodex" "$RC" 2>/dev/null \
+  || echo "alias codex='\$HOME/.local/bin/mycodex'" >> "$RC"
+echo "Wrote to $RC — restart the terminal or source it"
 ```
 
 > Using both tools → `./install.sh` (no argument) and add both aliases.
@@ -59,14 +65,37 @@ alias codex='$HOME/.local/bin/mycodex'
 
 ## Editor settings (required for the VS Code family; skip for iTerm / Terminal.app)
 
-The terminal tabs of Cursor, Antigravity, and VS Code do **not** display OSC titles by default. You must add this to that editor's `settings.json` (Cmd+Shift+P → "Open User Settings (JSON)"):
+The terminal tabs of Cursor, Antigravity, and VS Code do **not** display OSC titles by default. You must add `"terminal.integrated.tabs.title": "${sequence}"` to that editor's `settings.json`.
 
-```json
-"terminal.integrated.tabs.title": "${sequence}"
+**The AI edits settings.json directly (don't make the user go through Cmd+Shift+P)**: figure out which editor the user has (set whichever path exists), use the python below to **merge the key in (preserving existing settings)**, creating the file if it doesn't exist. macOS paths:
+
+| Editor | settings.json path |
+|---|---|
+| Cursor | `~/Library/Application Support/Cursor/User/settings.json` |
+| Antigravity | `~/Library/Application Support/Antigravity/User/settings.json` |
+| VS Code | `~/Library/Application Support/Code/User/settings.json` |
+
+```bash
+python3 - "<path from the table above>" <<'PY'
+import json, os, sys
+p = os.path.expanduser(sys.argv[1])
+os.makedirs(os.path.dirname(p), exist_ok=True)
+cfg = {}
+if os.path.exists(p):
+    with open(p) as f:
+        cfg = json.load(f)          # raises if it contains // comments → use the fallback below
+cfg["terminal.integrated.tabs.title"] = "${sequence}"
+with open(p, "w") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+print("set terminal.integrated.tabs.title in", p)
+PY
 ```
 
-- Only takes effect for terminals **opened after saving** the setting
-- Configure every editor you use (Cursor / Antigravity / VS Code each have their own settings.json)
+- **Only takes effect for terminals opened after saving** → have the user open a new terminal once it's set
+- Configure every editor you use (each has its own settings.json)
+- Fallback: if none of the paths above exist, or python errors out because of JSONC comments → ask the user to
+  Cmd+Shift+P → "Open User Settings (JSON)" and add that line manually. **On error the original
+  file is left untouched** (json.load fails during the read, before any write), so the manual path is safe
 
 ## E2E Verification (the AI agent MUST actively walk the user through this — do not skip)
 

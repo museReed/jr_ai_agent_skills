@@ -33,10 +33,13 @@ cd jr_ai_agent_skills/installer
 ./install.sh claude
 ```
 
-然後把 alias 加進 shell rc（`~/.zshrc` 或 `~/.bashrc`）：
+然後把 alias 寫進 shell rc（**AI 直接執行寫入，不要只印給用戶看**；冪等，已存在就不重複加）：
 
 ```bash
-alias claude='$HOME/.local/bin/myclaude'
+RC="$HOME/.zshrc"; case "$SHELL" in *bash*) RC="$HOME/.bashrc";; esac
+grep -q "alias claude=.*myclaude" "$RC" 2>/dev/null \
+  || echo "alias claude='\$HOME/.local/bin/myclaude'" >> "$RC"
+echo "已寫入 $RC — 請重開 terminal 或 source 它，alias 沒生效＝功能沒生效"
 ```
 
 裝完跳到「編輯器設定」。
@@ -48,10 +51,13 @@ cd jr_ai_agent_skills/installer
 ./install.sh codex
 ```
 
-alias：
+alias（**AI 直接執行寫入**，冪等）：
 
 ```bash
-alias codex='$HOME/.local/bin/mycodex'
+RC="$HOME/.zshrc"; case "$SHELL" in *bash*) RC="$HOME/.bashrc";; esac
+grep -q "alias codex=.*mycodex" "$RC" 2>/dev/null \
+  || echo "alias codex='\$HOME/.local/bin/mycodex'" >> "$RC"
+echo "已寫入 $RC — 請重開 terminal 或 source 它"
 ```
 
 > 兩個工具都用 → `./install.sh`（不帶參數），兩個 alias 都加。
@@ -60,14 +66,38 @@ alias codex='$HOME/.local/bin/mycodex'
 ## 編輯器設定（VS Code 系必做，iTerm / Terminal.app 跳過）
 
 Cursor、Antigravity、VS Code 的 terminal tab **預設不顯示** OSC 標題，必須在該編輯器的
-`settings.json`（Cmd+Shift+P → "Open User Settings (JSON)"）加：
+`settings.json` 加 `"terminal.integrated.tabs.title": "${sequence}"`。
 
-```json
-"terminal.integrated.tabs.title": "${sequence}"
+**AI 直接執行（不要叫用戶走 Cmd+Shift+P）**：判斷用戶用哪個編輯器（存在哪個路徑就設哪個），
+用下面的 python 把 key **merge 進去（保留既有設定）**，檔案不存在就建。macOS 路徑：
+
+| 編輯器 | settings.json 路徑 |
+|---|---|
+| Cursor | `~/Library/Application Support/Cursor/User/settings.json` |
+| Antigravity | `~/Library/Application Support/Antigravity/User/settings.json` |
+| VS Code | `~/Library/Application Support/Code/User/settings.json` |
+
+```bash
+python3 - "<上表對應路徑>" <<'PY'
+import json, os, sys
+p = os.path.expanduser(sys.argv[1])
+os.makedirs(os.path.dirname(p), exist_ok=True)
+cfg = {}
+if os.path.exists(p):
+    with open(p) as f:
+        cfg = json.load(f)          # 若含 // 註解會 raise → 走下方 fallback
+cfg["terminal.integrated.tabs.title"] = "${sequence}"
+with open(p, "w") as f:
+    json.dump(cfg, f, indent=2, ensure_ascii=False)
+print("set terminal.integrated.tabs.title in", p)
+PY
 ```
 
-- 只對**存檔後新開**的 terminal 生效
-- 用哪個編輯器就設哪個（Cursor / Antigravity / VS Code 各有各的 settings.json）
+- **只對存檔後新開的 terminal 生效** → 設完請用戶新開一個 terminal
+- 用哪個編輯器就設哪個（各有各的 settings.json）
+- Fallback：上述路徑都找不到、或 python 因 JSONC 註解報錯 → 請用戶
+  Cmd+Shift+P → "Open User Settings (JSON)" 手動加那一行。**報錯時原檔不會被動到**
+  （json.load 在讀取階段就失敗、還沒寫入），放心走手動
 
 ## E2E 驗證（AI agent 必須主動引導用戶完成，不可跳過）
 
