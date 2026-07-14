@@ -131,3 +131,7 @@ echo
 echo "Then restart your terminal. Tab titles auto-update right after your first message."
 echo
 echo "Next: run ./verify.sh (from this directory) to check the install end-to-end."
+echo
+echo "選配：一條龍 demo（frontend-design / skill-creator / Playwright，官方第三方 skill）——"
+echo "  ./install-external-skills.sh        # 需網路 + Node；Claude 與 Codex 都裝"
+echo "  裝完它會提示你：開一個【新的】session，再貼上 demo-prompt-claude.md 或 demo-prompt-codex.md"
