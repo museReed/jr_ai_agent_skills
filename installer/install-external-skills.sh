@@ -25,19 +25,21 @@ fi
 
 SKILLS="npx --yes skills add"
 
-# --- 1. frontend-design（Anthropic，agent 無關，一裝通吃兩邊）---
-echo "[1] frontend-design（Anthropic）"
-AGENTS=""
-[ "$TARGET" != codex ]  && AGENTS="$AGENTS -a claude-code"
-[ "$TARGET" != claude ] && AGENTS="$AGENTS -a codex"
-# shellcheck disable=SC2086
-$SKILLS anthropics/skills --skill frontend-design -g $AGENTS -y \
-  && info "frontend-design 已裝: ${AGENTS}" || warn "frontend-design 安裝失敗"
+# --- 1. frontend-design（Anthropic）— Claude only ---
+# Codex 用它自己官方的 frontend-skill（見 demo-prompt-codex.md，由 Codex 自己裝），
+# 所以這裡不給 Codex 裝 frontend-design。--copy + 單一 agent → 落在 ~/.claude/skills，
+# 不進共用的 ~/.agents/skills，Codex 就不會看到（避免兩個前端設計 skill 觸發打架）。
+if [ "$TARGET" != codex ]; then
+  echo "[1] frontend-design（Anthropic，Claude only）"
+  $SKILLS anthropics/skills --skill frontend-design -g -a claude-code --copy -y \
+    && info "frontend-design 已裝（Claude）" || warn "frontend-design 安裝失敗"
+fi
+[ "$TARGET" != claude ] && info "Codex 前端設計＝官方 frontend-skill，由 demo-prompt-codex.md 讓 Codex 自己裝。"
 
 # --- 2. skill-creator（Claude 用 npx；Codex 新版內建 $skill-creator，免裝）---
 if [ "$TARGET" != codex ]; then
   echo "[2] skill-creator（Claude）"
-  $SKILLS anthropics/skills --skill skill-creator -g -a claude-code -y \
+  $SKILLS anthropics/skills --skill skill-creator -g -a claude-code --copy -y \
     && info "skill-creator 已裝（Claude）" || warn "skill-creator 安裝失敗"
 fi
 [ "$TARGET" != claude ] && info "Codex 的 skill-creator 為內建（\$skill-creator），免安裝。"
@@ -47,15 +49,6 @@ if [ "$TARGET" != claude ]; then
   echo "[3a] Codex playwright skill（CLI）"
   $SKILLS openai/skills --skill playwright -g -a codex -y \
     && info "codex playwright skill 已裝" || warn "codex playwright skill 安裝失敗"
-
-  # npx skills 把 Codex 的 skill 放進 ~/.agents/skills（canonical）。部分 Codex 版本只掃
-  # ~/.codex/skills，這裡補 symlink 保證看得到（jr 的其他 skill 也都在 ~/.codex/skills）。
-  mkdir -p "$HOME/.codex/skills"
-  for s in frontend-design playwright; do
-    [ -d "$HOME/.agents/skills/$s" ] \
-      && ln -sfn "$HOME/.agents/skills/$s" "$HOME/.codex/skills/$s" \
-      && info "~/.codex/skills/$s → ~/.agents/skills/$s"
-  done
 fi
 if [ "$TARGET" != codex ]; then
   echo "[3b] Claude Playwright MCP"
