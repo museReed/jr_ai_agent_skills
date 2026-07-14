@@ -93,6 +93,7 @@ if [ "$TARGET" != "codex" ]; then
   check_file "context-monitor.sh" "$SRC_DIR/hooks/context-monitor.sh" "$HOME/.claude/hooks/context-monitor.sh"
   check_file "auto-rename SKILL" "$SRC_DIR/skills/claude/auto-rename/SKILL.md" "$HOME/.claude/skills/auto-rename/SKILL.md"
   check_file "handoff SKILL" "$SRC_DIR/skills/claude/handoff/SKILL.md" "$HOME/.claude/skills/handoff/SKILL.md"
+  check_file "structured-questions SKILL" "$SRC_DIR/skills/claude/structured-questions/SKILL.md" "$HOME/.claude/skills/structured-questions/SKILL.md"
   check_registered "註冊 namer PostToolUse" "$HOME/.claude/settings.json" "session-auto-namer.sh" "PostToolUse"
   check_registered "註冊 namer UserPromptSubmit" "$HOME/.claude/settings.json" "session-auto-namer.sh" "UserPromptSubmit"
   check_registered "註冊 context-monitor" "$HOME/.claude/settings.json" "/context-monitor.sh" "PostToolUse"
@@ -118,6 +119,7 @@ if [ "$TARGET" != "claude" ]; then
   check_file "codex-context-monitor.sh" "$SRC_DIR/hooks/codex-context-monitor.sh" "$HOME/.codex/hooks/codex-context-monitor.sh"
   check_file "auto-rename SKILL" "$SRC_DIR/skills/codex/auto-rename/SKILL.md" "$HOME/.codex/skills/auto-rename/SKILL.md"
   check_file "handoff SKILL" "$SRC_DIR/skills/codex/handoff/SKILL.md" "$HOME/.codex/skills/handoff/SKILL.md"
+  check_file "structured-questions SKILL" "$SRC_DIR/skills/codex/structured-questions/SKILL.md" "$HOME/.codex/skills/structured-questions/SKILL.md"
   diff -q "$SRC_DIR/skills/codex/_shared/codex-session-rename.md" "$HOME/.codex/skills/_shared/codex-session-rename.md" >/dev/null 2>&1 \
     && ok "_shared/codex-session-rename.md" || bad "_shared/codex-session-rename.md" "缺檔或內容過期"
   check_registered "註冊 namer PostToolUse" "$HOME/.codex/hooks.json" "codex-session-namer.sh" "PostToolUse"
