@@ -42,6 +42,11 @@ if [ "$TARGET" != "codex" ]; then
     echo "  installed: ~/.claude/skills/$skill/"
   done
 
+  # 1M context-window 偵測用的快取種子（context-monitor.sh 靠它查真實視窗，避免把 1M 模型當 200k）。
+  # 只在缺檔時種下，不覆蓋學生本機已 populated 的版本。
+  [ -f "$HOME/.claude/model-context-windows-cache.json" ] \
+    || install_file "$SRC_DIR/model-context-windows-cache.json" "$HOME/.claude/model-context-windows-cache.json" 644
+
   backup "$HOME/.claude/settings.json"
   python3 - "$HOME/.claude/settings.json" <<'PYEOF'
 import json, os, sys
