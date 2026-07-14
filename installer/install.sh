@@ -35,7 +35,7 @@ if [ "$TARGET" != "codex" ]; then
   echo "[2/3] Claude Code: hooks + skills"
   install_file "$SRC_DIR/hooks/session-auto-namer.sh" "$HOME/.claude/hooks/session-auto-namer.sh" 755
   install_file "$SRC_DIR/hooks/context-monitor.sh" "$HOME/.claude/hooks/context-monitor.sh" 755
-  for skill in auto-rename handoff; do
+  for skill in auto-rename handoff structured-questions; do
     mkdir -p "$HOME/.claude/skills/$skill"
     backup "$HOME/.claude/skills/$skill/SKILL.md"
     cp -R "$SRC_DIR/skills/claude/$skill/." "$HOME/.claude/skills/$skill/"
@@ -77,7 +77,7 @@ if [ "$TARGET" != "claude" ]; then
   echo "[3/3] Codex: hooks + skills"
   install_file "$SRC_DIR/hooks/codex-session-namer.sh" "$HOME/.codex/hooks/codex-session-namer.sh" 755
   install_file "$SRC_DIR/hooks/codex-context-monitor.sh" "$HOME/.codex/hooks/codex-context-monitor.sh" 755
-  for skill in auto-rename handoff; do
+  for skill in auto-rename handoff structured-questions; do
     mkdir -p "$HOME/.codex/skills/$skill"
     backup "$HOME/.codex/skills/$skill/SKILL.md"
     cp -R "$SRC_DIR/skills/codex/$skill/." "$HOME/.codex/skills/$skill/"
