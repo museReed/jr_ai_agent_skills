@@ -15,6 +15,7 @@
 | **Auto-Rename**（skill + hook） | AI 自動幫每個 session 取名字並同步 terminal tab（Codex 連 sidebar），tab 不再全叫 "New chat" | [介紹](zh-Hant/auto-rename-skill.md) · [安裝](zh-Hant/auto-rename-install.md) |
 | **Handoff**（skill + hook） | Session 結束前寫結構化交接文件；context 用到 70% 時 hook 自動催 | [介紹](zh-Hant/handoff-skill.md) · [安裝](zh-Hant/handoff-install.md) |
 | **Structured Questions**（skill） | 遇到多個方案時，AI 拆成選擇題問你，不替你決定 | [介紹](zh-Hant/structured-questions-skill.md) · [安裝](zh-Hant/structured-questions-install.md) |
+| **前端 Demo Skills**（external，需網路） | frontend-design / Playwright / skill-creator ＋一條龍 demo（問配色→生網頁→左打碼右即時預覽） | [安裝](zh-Hant/external-skills-install.md) |
 
 ### 怎麼用？（什麼時候會發生、怎麼手動觸發）
 
@@ -85,6 +86,7 @@ Read jr_ai_agent_skills/installer/TROUBLESHOOTING.md and debug this for me: {一
 | **Auto-Rename**（skill + hook） | AI 自动帮每个 session 取名字并同步 terminal tab（Codex 连 sidebar），tab 不再全叫 "New chat" | [介绍](zh-Hans/auto-rename-skill.md) · [安装](zh-Hans/auto-rename-install.md) |
 | **Handoff**（skill + hook） | Session 结束前写结构化交接文档；context 用到 70% 时 hook 自动催 | [介绍](zh-Hans/handoff-skill.md) · [安装](zh-Hans/handoff-install.md) |
 | **Structured Questions**（skill） | 遇到多个方案时，AI 拆成选择题问你，不替你决定 | [介绍](zh-Hans/structured-questions-skill.md) · [安装](zh-Hans/structured-questions-install.md) |
+| **前端 Demo Skills**（external，需网络） | frontend-design / Playwright / skill-creator ＋一条龙 demo（问配色→生网页→左打码右即时预览） | [安装](zh-Hans/external-skills-install.md) |
 
 ### 怎么用？（什么时候会发生、怎么手动触发）
 
@@ -155,6 +157,7 @@ Three skills + two hooks that take session management in Claude Code / Codex CLI
 | **Auto-Rename** (skill + hook) | AI names every session and syncs the terminal tab (and Codex sidebar) — no more tabs all called "New chat" | [Guide](en/auto-rename-skill.md) · [Install](en/auto-rename-install.md) |
 | **Handoff** (skill + hook) | Writes a structured handoff document before the session ends; a hook nags automatically at 70% context usage | [Guide](en/handoff-skill.md) · [Install](en/handoff-install.md) |
 | **Structured Questions** (skill) | When there are multiple viable options, AI turns them into structured choices instead of deciding for you | [Guide](en/structured-questions-skill.md) · [Install](en/structured-questions-install.md) |
+| **Frontend Demo Skills** (external, needs network) | frontend-design / Playwright / skill-creator + one-shot demo (ask colors → generate page → type-on-left, live-preview-on-right) | [Install](en/external-skills-install.md) |
 
 ### How to use (when it fires, how to trigger manually)
 

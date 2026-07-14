@@ -13,11 +13,11 @@ These are the official third-party skills used by the "frontend-design one-shot 
 
 | Skill | Claude | Codex |
 |---|---|---|
-| Frontend design | `frontend-design` (Anthropic) | official `frontend-skill` (**Codex installs it itself at demo time**, not in this script) |
+| Frontend design | `frontend-design` (Anthropic) | `frontend-design` (same one) |
 | Skill authoring | `skill-creator` (Anthropic) | built-in `$skill-creator`, no install |
 | Playwright | Playwright **MCP** (`claude mcp add`) | official `playwright` **CLI skill** |
 
-> Why Codex does NOT get frontend-design: Codex has its own official `frontend-skill` (ships an OpenAI manifest, triggered by `$frontend-skill`). Forcing Anthropic's frontend-design onto Codex would give it two competing frontend-design skills. frontend-skill cannot be installed non-interactively (`npx skills add openai/skills` reports no match) — it goes through Codex's built-in `$skill-installer`, so the demo prompt has Codex install it inside the session.
+> Why Codex also uses frontend-design: OpenAI's own `frontend-skill` was removed on 2026-04-23 with no replacement (no webpage-generation skill exists in `openai/skills` `.curated`). frontend-design is agent-agnostic, so one copy in `~/.agents/skills` (Codex's official user dir) works for both.
 
 ## Section A: Claude Code Installation
 
@@ -26,7 +26,7 @@ cd jr_ai_agent_skills/installer
 ./install-external-skills.sh claude
 ```
 
-Installs: `frontend-design` (`~/.claude/skills`, Claude-only), `skill-creator` (`~/.claude/skills`), Playwright MCP (`~/.claude.json`, user scope), and the local live-preview demo deps (python playwright + chromium).
+Installs: `frontend-design`, `skill-creator`, Playwright MCP (`~/.claude.json`, user scope), and the local live-preview demo deps (python playwright + chromium).
 
 ## Section B: Codex CLI Installation
 
@@ -35,7 +35,7 @@ cd jr_ai_agent_skills/installer
 ./install-external-skills.sh codex
 ```
 
-Installs: the official `playwright` CLI skill (`~/.agents/skills`) + the local demo deps. `frontend-skill` is **not in this step** — Codex installs it itself during the demo below; `skill-creator` is built into Codex.
+Installs: `frontend-design` (`~/.agents/skills`) + the official `playwright` CLI skill + the local demo deps. `skill-creator` is built into Codex.
 
 > Using both tools → `./install-external-skills.sh` (no argument).
 > The script guards: it stops with a clear message if Node/npx or network is missing; on a PEP 668 error it falls back to `--break-system-packages`.
@@ -51,9 +51,7 @@ After installing, **guide the user to open a NEW terminal / session** (skills on
 | Claude Code | `installer/demo-prompt-claude.md` |
 | Codex | `installer/demo-prompt-codex.md` |
 
-Once pasted, the AI runs the one-shot flow: `structured-questions` asks about colors → `frontend-design` (Claude) / `frontend-skill` (Codex) generates a single-file webpage → the local `type_hl.py` shows it with "types code on the left, renders live on the right".
-
-> The Codex prompt's first step has Codex confirm / install its official `frontend-skill` (`$skill-installer frontend-skill`).
+Once pasted, the AI runs the one-shot flow: `structured-questions` asks about colors → `frontend-design` generates a single-file webpage → the local `type_hl.py` shows it with "types code on the left, renders live on the right".
 
 ---
 
@@ -61,5 +59,5 @@ Once pasted, the AI runs the one-shot flow: `structured-questions` asks about co
 
 - Each install step prints ✅ / ⚠️; for any ⚠️, follow the message (usually missing Node, no network, or python playwright not set up).
 - Claude: `claude mcp list` should show `playwright`; `/frontend-design` and `/skill-creator` can be triggered manually.
-- Codex: `~/.agents/skills/playwright` should exist; `$skill-creator` is available; `$frontend-skill` is available after the demo's first step installs it.
+- Codex: `~/.agents/skills/{frontend-design,playwright}` should exist; `$skill-creator` is available.
 - Final check = run the demo above and confirm the webpage actually renders on the right.

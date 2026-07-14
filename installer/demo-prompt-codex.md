@@ -8,8 +8,7 @@
    > 想要互動式選單，先輸入 `/plan` 進 Plan mode（`ask_user_question` tool 只在 Plan mode 可用）；
    > 不方便切就用純文字選項格式（`Q1: A/B/C`），我回覆編號即可。
 
-2. **生成網頁** — 用 Codex 官方的 `$frontend-skill`（不是 Anthropic 的 frontend-design）把答案做成網頁：
-   - **若 `$frontend-skill` 還沒裝**，先用 Codex 官方的 skill 安裝方式裝好它（例如 `$skill-installer frontend-skill`），再繼續
+2. **生成網頁** — 用 `$frontend-design` 把答案做成網頁：
    - 做成一個**單檔自包含** HTML：CSS / JS 全部 inline 寫在同一個檔
    - **不可**有外部 `<link href>` 或 `<script src>`（右邊預覽用 iframe srcdoc，外部相對檔會渲染不出來）
    - 存成 `~/demo-page.html`

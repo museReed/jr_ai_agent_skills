@@ -13,11 +13,11 @@ Read this document, then execute the installation steps for your tool (Section A
 
 | Skill | Claude | Codex |
 |---|---|---|
-| 前端设计 | `frontend-design`（Anthropic） | 官方 `frontend-skill`（**由 demo 时 Codex 自己装**，不在本脚本内） |
+| 前端设计 | `frontend-design`（Anthropic） | `frontend-design`（同一份） |
 | 造 skill | `skill-creator`（Anthropic） | 内建 `$skill-creator`，免装 |
 | Playwright | Playwright **MCP**（`claude mcp add`） | 官方 `playwright` **CLI skill** |
 
-> 为什么 Codex 不装 frontend-design：Codex 有自己官方的 `frontend-skill`（带 OpenAI manifest、`$frontend-skill` 触发）。硬塞 Anthropic 的 frontend-design 会让 Codex 有两个前端设计 skill 抢着触发。frontend-skill 无法非交互安装（`npx skills add openai/skills` 查无），只能靠 Codex 内建的 `$skill-installer`，所以交给 demo-prompt 让 Codex 在 session 里自己装。
+> 为什么 Codex 也用 frontend-design：OpenAI 官方原本的 `frontend-skill` 已于 2026-04-23 被移除且无替代（`openai/skills` 的 `.curated` 查无任何前端生成 skill）。frontend-design 是 agent 无关的，一份装进 `~/.agents/skills`（Codex 官方 user 目录）两边都能用。
 
 ## Section A: Claude Code 安装
 
@@ -26,7 +26,7 @@ cd jr_ai_agent_skills/installer
 ./install-external-skills.sh claude
 ```
 
-装：`frontend-design`（`~/.claude/skills`，Claude 专用）、`skill-creator`（`~/.claude/skills`）、Playwright MCP（`~/.claude.json` user scope）、以及本地 live-preview demo 依赖（python playwright + chromium）。
+装：`frontend-design`、`skill-creator`、Playwright MCP（`~/.claude.json` user scope）、以及本地 live-preview demo 依赖（python playwright + chromium）。
 
 ## Section B: Codex CLI 安装
 
@@ -35,7 +35,7 @@ cd jr_ai_agent_skills/installer
 ./install-external-skills.sh codex
 ```
 
-装：官方 `playwright` CLI skill（`~/.agents/skills`）＋本地 demo 依赖。`frontend-skill` **不在这步**——它在下方 demo 时由 Codex 自己装；`skill-creator` 是 Codex 内建。
+装：`frontend-design`（`~/.agents/skills`）＋官方 `playwright` CLI skill＋本地 demo 依赖。`skill-creator` 是 Codex 内建。
 
 > 两个工具都用 → `./install-external-skills.sh`（不带参数）。
 > 脚本有 guard：缺 Node/npx 或没网络会直接挡下并说明；pip 撞 PEP 668 会自动退 `--break-system-packages`。
@@ -51,9 +51,7 @@ cd jr_ai_agent_skills/installer
 | Claude Code | `installer/demo-prompt-claude.md` |
 | Codex | `installer/demo-prompt-codex.md` |
 
-贴上后 AI 会跑一条龙：`structured-questions` 问配色 → `frontend-design`（Claude）/ `frontend-skill`（Codex）生成单档网页 → 本地 `type_hl.py` 左打码右预览展示成果。
-
-> Codex 版的 prompt 第一步会让 Codex 自己确认 / 安装官方 `frontend-skill`（`$skill-installer frontend-skill`）。
+贴上后 AI 会跑一条龙：`structured-questions` 问配色 → `frontend-design` 生成单档网页 → 本地 `type_hl.py` 左打码右预览展示成果。
 
 ---
 
@@ -61,5 +59,5 @@ cd jr_ai_agent_skills/installer
 
 - 安装脚本每一步都会印 ✅ / ⚠️；有 ⚠️ 依信息补（多半是缺 Node、没网络、或 python playwright 没装好）。
 - Claude：`claude mcp list` 应看到 `playwright`；`/frontend-design`、`/skill-creator` 可手动触发。
-- Codex：`~/.agents/skills/playwright` 应存在；`$skill-creator` 可用；`$frontend-skill` 于 demo 第一步装好后可用。
+- Codex：`~/.agents/skills/{frontend-design,playwright}` 应存在；`$skill-creator` 可用。
 - 最终验证＝跑完上面那条 demo，右边真的长出网页。
