@@ -37,7 +37,11 @@ if [ -n "${CODEX_THREAD_ID:-}" ] && command -v sqlite3 >/dev/null 2>&1; then
 fi
 
 if [ -z "$ROLLOUT_PATH" ] || [ ! -f "$ROLLOUT_PATH" ]; then
-  ROLLOUT_PATH=$(find "$HOME/.codex/sessions" -type f -name "rollout-*.jsonl" -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1)
+  if [ -z "${CODEX_THREAD_ID:-}" ]; then
+    # 完全沒 thread id（單 session 情境）才允許猜最新 rollout
+    ROLLOUT_PATH=$(find "$HOME/.codex/sessions" -type f -name "rollout-*.jsonl" -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1)
+  fi
+  # 有 thread id 卻查不到 → 留空，改走 per-PID 工具呼叫數 fallback，不猜別的 session（誤報 99% 教訓）
 fi
 
 PCT=""

@@ -36,13 +36,28 @@ EOF
 [ -z "$TOTAL" ] && exit 0
 [ "$TOTAL" -eq 0 ] 2>/dev/null && exit 0
 
-# Context window by model: Claude Code marks 1M long-context mode with a [1m] suffix
-# (e.g. claude-sonnet-4-5[1m]); everything else is the 200k default.
-case "$MODEL" in
-  *\[1m\]*)  MAX_CONTEXT=1000000 ;;
-  *fable*)   MAX_CONTEXT=1000000 ;;  # Fable 5 default window is 1M (no [1m] marker)
-  *)         MAX_CONTEXT=200000 ;;
-esac
+# Context window by model.
+# 實測（2026-07-05→06）：JSONL message.model 永遠是裸 id、[1m] 只是 UI 顯示標記從不落地；
+# 靠字串猜測（*fable*/*sonnet-5* 等 pattern）踩過兩次坑（opus 1M 誤判、sonnet 5 誤判）。
+# 正解：`claude -p "hi" --model <alias> --output-format json` 的 modelUsage.<id>.contextWindow
+# 是 Anthropic API 自己回報的權威數字（haiku-4-5 實測 200000、opus-4-8/sonnet-5/fable-5 均
+# 1000000，跟 model 綁定、非固定回報上限——haiku 對照組證實這點）。
+# 查表快取：CACHE，未知 model 用「已知限制」段的指令補一筆，不再用字串猜。
+CACHE="$HOME/.claude/model-context-windows-cache.json"
+MAX_CONTEXT=$(python3 -c "
+import json
+try:
+    d = json.load(open('$CACHE'))
+    print(int(d.get('$MODEL', 0)) or '')
+except Exception:
+    pass
+" 2>/dev/null)
+
+# 已知限制：cache 沒有的新 model → 保守假設 200k（可能低估）。發現「MAX_CONTEXT 保守預設」
+# 字樣時，跑一次驗證並補進 cache：
+#   claude -p "hi" --model <alias> --output-format json | python3 -c \
+#     "import json,sys; print(json.load(sys.stdin)['modelUsage'])"
+[ -z "$MAX_CONTEXT" ] && MAX_CONTEXT=200000  # 保守預設（cache 未收錄此 model）
 
 # Temporary small-context test mode: launch as
 #   CONTEXT_MONITOR_TEST_WINDOW=30000 claude
