@@ -47,6 +47,15 @@ if [ "$TARGET" != claude ]; then
   echo "[3a] Codex playwright skill（CLI）"
   $SKILLS openai/skills --skill playwright -g -a codex -y \
     && info "codex playwright skill 已裝" || warn "codex playwright skill 安裝失敗"
+
+  # npx skills 把 Codex 的 skill 放進 ~/.agents/skills（canonical）。部分 Codex 版本只掃
+  # ~/.codex/skills，這裡補 symlink 保證看得到（jr 的其他 skill 也都在 ~/.codex/skills）。
+  mkdir -p "$HOME/.codex/skills"
+  for s in frontend-design playwright; do
+    [ -d "$HOME/.agents/skills/$s" ] \
+      && ln -sfn "$HOME/.agents/skills/$s" "$HOME/.codex/skills/$s" \
+      && info "~/.codex/skills/$s → ~/.agents/skills/$s"
+  done
 fi
 if [ "$TARGET" != codex ]; then
   echo "[3b] Claude Playwright MCP"
