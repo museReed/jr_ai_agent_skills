@@ -400,5 +400,5 @@ Read docs/guides/structured-questions-install.md and execute Section B
 |---|---|---|
 | 互動 UI | 隨時可用（`AskUserQuestion` 工具） | 僅 Plan mode 可用 |
 | 非 Plan mode | 不適用 | 自動切換為純文字選項格式 |
-| 安裝路徑 | `.claude/skills/structured-questions/SKILL.md` | `.codex/skills/structured-questions/SKILL.md` |
+| 安裝路徑 | `.claude/skills/structured-questions/SKILL.md` | `.agents/skills/structured-questions/SKILL.md` |
 | 觸發方式 | `/structured-questions` 或自動觸發 | `$structured-questions` 或自動觸發 |

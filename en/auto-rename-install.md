@@ -61,7 +61,7 @@ echo "Wrote to $RC — restart the terminal or source it"
 ```
 
 > Using both tools → `./install.sh` (no argument) and add both aliases.
-> The installer is idempotent: safe to re-run; it automatically backs up any file it replaces (`*.bak.{timestamp}`).
+> The installer is idempotent and safe to re-run. Codex skill backups go to `~/.agents/skill-backups/{timestamp}/`; other replaced files use `*.bak.{timestamp}`.
 
 ## Editor settings (required for the VS Code family; skip for iTerm / Terminal.app)
 
@@ -144,7 +144,7 @@ With `gh` CLI authed it files the issue directly; otherwise the body lands in th
 | `session-auto-namer.sh` | `~/.claude/hooks/` | UserPromptSubmit (name from first message) + PostToolUse (#5 re-evaluation, every-10 safety net) |
 | `codex-session-namer.sh` | `~/.codex/hooks/` | same as above + consumes the relay file, writes SQLite on the model's behalf |
 | relay file (Codex) | `/tmp/codex-session-namer/{pid}.pending` | the only handoff point the model can write from inside the sandbox |
-| skill | `~/.claude/skills/auto-rename/`, `~/.codex/skills/auto-rename/` | rules for manual `/auto-rename` |
+| skill | `~/.claude/skills/auto-rename/`, `~/.agents/skills/auto-rename/` | rules for manual `/auto-rename` |
 
 ## Migrating to another machine
 

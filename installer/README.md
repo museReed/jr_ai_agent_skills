@@ -54,7 +54,7 @@ cd jr_ai_agent_skills/installer
 | `~/.claude/hooks/session-auto-namer.sh` | Claude Code 自動命名 hook（註冊進 settings.json） |
 | `~/.claude/skills/auto-rename/SKILL.md` | `/auto-rename` 手動命名 skill |
 | `~/.codex/hooks/codex-session-namer.sh` | Codex 自動命名 hook（註冊進 hooks.json） |
-| `~/.codex/skills/auto-rename/SKILL.md` | `$auto-rename` 手動命名 skill |
+| `~/.agents/skills/auto-rename/SKILL.md` | `$auto-rename` 手動命名 skill |
 
 ## 不用 wrapper 也能動（degraded mode）
 

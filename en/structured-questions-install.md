@@ -33,10 +33,10 @@ cd jr_ai_agent_skills/installer
 ./install.sh codex
 ```
 
-Installs to `~/.codex/skills/structured-questions/SKILL.md`. Triggers: automatically or manually via `$structured-questions`. **Plan mode uses the interactive UI; other modes use the plain-text option format.**
+Installs to `~/.agents/skills/structured-questions/SKILL.md`. Triggers: automatically or manually via `$structured-questions`. **Plan mode uses the interactive UI; other modes use the plain-text option format.**
 
 > Using both tools → `./install.sh` (no argument).
-> The installer is idempotent: safe to re-run; it automatically backs up any file it replaces (`*.bak.{timestamp}`).
+> The installer is idempotent and safe to re-run. Codex skill backups go to `~/.agents/skill-backups/{timestamp}/`; other replaced files use `*.bak.{timestamp}`.
 
 ---
 

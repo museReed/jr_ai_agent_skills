@@ -402,5 +402,5 @@ See [structured-questions-install.md](./structured-questions-install.md) for det
 |---|---|---|
 | Interactive UI | Available anytime (`AskUserQuestion` tool) | Only available in Plan mode |
 | Non-Plan mode | N/A | Automatically switches to plain text option format |
-| Install path | `.claude/skills/structured-questions/SKILL.md` | `.codex/skills/structured-questions/SKILL.md` |
+| Install path | `.claude/skills/structured-questions/SKILL.md` | `.agents/skills/structured-questions/SKILL.md` |
 | Trigger method | `/structured-questions` or auto trigger | `$structured-questions` or auto trigger |

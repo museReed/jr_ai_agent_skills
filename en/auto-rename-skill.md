@@ -193,5 +193,5 @@ See [auto-rename-install.md](./auto-rename-install.md) for detailed steps.
 | Auto trigger | Yes (PostToolUse hook triggers at the 5th tool call) | No |
 | Naming method | Writes file `~/.claude/session-names/${PID}.txt` | Writes to SQLite `~/.codex/state_*.sqlite` |
 | Terminal tab sync | Sends OSC escape directly to change tab title | Requires launching with `mycodex` wrapper for sync |
-| Install location | `.claude/skills/auto-rename/SKILL.md` | `.codex/skills/auto-rename/SKILL.md` |
+| Install location | `.claude/skills/auto-rename/SKILL.md` | `.agents/skills/auto-rename/SKILL.md` |
 | Manual trigger | `/auto-rename` | `$auto-rename` |

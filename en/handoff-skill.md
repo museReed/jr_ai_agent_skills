@@ -298,6 +298,6 @@ See [handoff-install.md](./handoff-install.md) for detailed steps.
 |---|---|---|
 | Auto trigger | Yes (context-monitor hook warns at 70%) | No |
 | Session archive rename | Writes file `~/.claude/session-names/${PID}.txt` + OSC escape | Writes to SQLite `~/.codex/state_*.sqlite` |
-| Install location | `.claude/skills/handoff/SKILL.md` | `.codex/skills/handoff/SKILL.md` |
+| Install location | `.claude/skills/handoff/SKILL.md` | `.agents/skills/handoff/SKILL.md` |
 | Manual trigger | `/handoff` | `$handoff` |
 | Handoff file location | `docs/handoff/{date}-{topic}.md` (same for both) | Same |

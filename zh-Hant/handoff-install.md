@@ -45,8 +45,8 @@ cd jr_ai_agent_skills/installer
 
 | 檔案 | 位置 | 作用 |
 |---|---|---|
-| `handoff/SKILL.md` | `~/.codex/skills/handoff/` | 交接文件產生流程（改名走 relay 檔） |
-| `_shared/codex-session-rename.md` | `~/.codex/skills/_shared/` | 改名方法的唯一事實來源 |
+| `handoff/SKILL.md` | `~/.agents/skills/handoff/` | 交接文件產生流程（改名走 relay 檔） |
+| `_shared/codex-session-rename.md` | `~/.agents/skills/_shared/` | 改名方法的唯一事實來源 |
 | `codex-context-monitor.sh` | `~/.codex/hooks/` | 讀 rollout 的 token_count，>70% 警告；讀不到時用 tool call 數估算 |
 
 ## E2E 驗證（AI agent 必須主動引導用戶完成，不可跳過）

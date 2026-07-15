@@ -297,6 +297,6 @@ Read docs/guides/handoff-install.md and execute Section B
 |---|---|---|
 | 自动触发 | 有（context-monitor hook 在 70% 时警告） | 无 |
 | Session 封存改名 | 写文件 `~/.claude/session-names/${PID}.txt` + OSC escape | 写 SQLite `~/.codex/state_*.sqlite` |
-| 安装位置 | `.claude/skills/handoff/SKILL.md` | `.codex/skills/handoff/SKILL.md` |
+| 安装位置 | `.claude/skills/handoff/SKILL.md` | `.agents/skills/handoff/SKILL.md` |
 | 手动触发 | `/handoff` | `$handoff` |
 | 交接文件位置 | `docs/handoff/{date}-{topic}.md`（两边相同） | 相同 |

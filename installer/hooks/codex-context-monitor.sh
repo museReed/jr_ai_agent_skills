@@ -107,7 +107,7 @@ fi
 if [ -n "$TRIGGER_REASON" ]; then
   python3 <<PYEOF
 import json
-ctx = "[context-monitor] ${TRIGGER_REASON} 請立即觸發 \$handoff skill：Read and follow .codex/skills/handoff/SKILL.md（repo 有的話優先）或 ~/.codex/skills/handoff/SKILL.md 寫交接文件。\n\n重要：寫完 handoff 並 commit 後，必須把 session 改名為 📦 {topic}（按 SKILL.md Step 5a 執行）。\n\n全部完成後執行：touch /tmp/codex-context-monitor/${CODEX_PID}.handoff"
+ctx = "[context-monitor] ${TRIGGER_REASON} 請立即觸發 \$handoff skill：Read and follow .agents/skills/handoff/SKILL.md（repo 有的話優先）或 ~/.agents/skills/handoff/SKILL.md 寫交接文件。\n\n重要：寫完 handoff 並 commit 後，必須把 session 改名為 📦 {topic}（按 SKILL.md Step 5a 執行）。\n\n全部完成後執行：touch /tmp/codex-context-monitor/${CODEX_PID}.handoff"
 obj = {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": ctx}}
 json.dump(obj, __import__('sys').stdout, ensure_ascii=False)
 PYEOF

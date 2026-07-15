@@ -46,8 +46,8 @@ cd jr_ai_agent_skills/installer
 
 | File | Location | Role |
 |---|---|---|
-| `handoff/SKILL.md` | `~/.codex/skills/handoff/` | the handoff document workflow (rename goes through the relay file) |
-| `_shared/codex-session-rename.md` | `~/.codex/skills/_shared/` | single source of truth for the rename method |
+| `handoff/SKILL.md` | `~/.agents/skills/handoff/` | the handoff document workflow (rename goes through the relay file) |
+| `_shared/codex-session-rename.md` | `~/.agents/skills/_shared/` | single source of truth for the rename method |
 | `codex-context-monitor.sh` | `~/.codex/hooks/` | reads token_count from the rollout, warns at >70%; falls back to tool-call-count estimation when unavailable |
 
 ## E2E Verification (the AI agent MUST actively walk the user through this — do not skip)

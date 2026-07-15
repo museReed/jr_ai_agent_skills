@@ -86,7 +86,7 @@ Commit 到當前 branch，不要切換 branch。
 
 #### 5a: 改 session name（📦 前綴標記已交接）
 
-改名方法 → Read `~/.codex/skills/_shared/codex-session-rename.md`。唯一步驟＝寫 relay 檔：
+改名方法 → Read `~/.agents/skills/_shared/codex-session-rename.md`。唯一步驟＝寫 relay 檔：
 
 ```bash
 mkdir -p /tmp/codex-session-namer && echo '📦 {topic}' > /tmp/codex-session-namer/${PPID}.pending

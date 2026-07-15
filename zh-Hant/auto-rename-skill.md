@@ -193,5 +193,5 @@ Read docs/guides/auto-rename-install.md and execute Section B
 | 自動觸發 | 有（PostToolUse hook 在第 5 次 tool call 觸發） | 無 |
 | 命名方式 | 寫檔案 `~/.claude/session-names/${PID}.txt` | 寫 SQLite `~/.codex/state_*.sqlite` |
 | Terminal tab 同步 | 直接發 OSC escape 改 tab title | 需用 `mycodex` wrapper 啟動才會同步 |
-| 安裝位置 | `.claude/skills/auto-rename/SKILL.md` | `.codex/skills/auto-rename/SKILL.md` |
+| 安裝位置 | `.claude/skills/auto-rename/SKILL.md` | `.agents/skills/auto-rename/SKILL.md` |
 | 手動觸發 | `/auto-rename` | `$auto-rename` |

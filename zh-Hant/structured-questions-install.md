@@ -33,10 +33,10 @@ cd jr_ai_agent_skills/installer
 ./install.sh codex
 ```
 
-裝到 `~/.codex/skills/structured-questions/SKILL.md`。觸發方式：自動或手動輸入 `$structured-questions`。**Plan mode 使用互動式 UI；其他 mode 使用文字選項格式。**
+裝到 `~/.agents/skills/structured-questions/SKILL.md`。觸發方式：自動或手動輸入 `$structured-questions`。**Plan mode 使用互動式 UI；其他 mode 使用文字選項格式。**
 
 > 兩個工具都用 → `./install.sh`（不帶參數）。
-> installer 是冪等的：重跑安全，會自動備份被取代的檔案（`*.bak.{timestamp}`）。
+> installer 是冪等的：重跑安全；Codex skill 備份放在 `~/.agents/skill-backups/{timestamp}/`，其他檔案使用 `*.bak.{timestamp}`。
 
 ---
 

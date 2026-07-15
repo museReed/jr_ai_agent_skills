@@ -117,11 +117,17 @@ if [ "$TARGET" != "claude" ]; then
   say "▍3. Codex"
   check_file "codex-session-namer.sh" "$SRC_DIR/hooks/codex-session-namer.sh" "$HOME/.codex/hooks/codex-session-namer.sh"
   check_file "codex-context-monitor.sh" "$SRC_DIR/hooks/codex-context-monitor.sh" "$HOME/.codex/hooks/codex-context-monitor.sh"
-  check_file "auto-rename SKILL" "$SRC_DIR/skills/codex/auto-rename/SKILL.md" "$HOME/.codex/skills/auto-rename/SKILL.md"
-  check_file "handoff SKILL" "$SRC_DIR/skills/codex/handoff/SKILL.md" "$HOME/.codex/skills/handoff/SKILL.md"
-  check_file "structured-questions SKILL" "$SRC_DIR/skills/codex/structured-questions/SKILL.md" "$HOME/.codex/skills/structured-questions/SKILL.md"
-  diff -q "$SRC_DIR/skills/codex/_shared/codex-session-rename.md" "$HOME/.codex/skills/_shared/codex-session-rename.md" >/dev/null 2>&1 \
+  check_file "auto-rename SKILL" "$SRC_DIR/skills/codex/auto-rename/SKILL.md" "$HOME/.agents/skills/auto-rename/SKILL.md"
+  check_file "handoff SKILL" "$SRC_DIR/skills/codex/handoff/SKILL.md" "$HOME/.agents/skills/handoff/SKILL.md"
+  check_file "structured-questions SKILL" "$SRC_DIR/skills/codex/structured-questions/SKILL.md" "$HOME/.agents/skills/structured-questions/SKILL.md"
+  diff -q "$SRC_DIR/skills/codex/_shared/codex-session-rename.md" "$HOME/.agents/skills/_shared/codex-session-rename.md" >/dev/null 2>&1 \
     && ok "_shared/codex-session-rename.md" || bad "_shared/codex-session-rename.md" "缺檔或內容過期"
+  if [ -e "$HOME/.codex/skills/auto-rename" ] || [ -e "$HOME/.codex/skills/handoff" ] \
+    || [ -e "$HOME/.codex/skills/structured-questions" ] || [ -e "$HOME/.codex/skills/_shared" ]; then
+    bad "無 legacy Codex skill 目錄" "~/.codex/skills 仍有同名舊版，可能重複載入"
+  else
+    ok "無 legacy Codex skill 目錄"
+  fi
   check_registered "註冊 namer PostToolUse" "$HOME/.codex/hooks.json" "codex-session-namer.sh" "PostToolUse"
   check_registered "註冊 namer UserPromptSubmit" "$HOME/.codex/hooks.json" "codex-session-namer.sh" "UserPromptSubmit"
   check_registered "註冊 context-monitor" "$HOME/.codex/hooks.json" "codex-context-monitor.sh" "PostToolUse"

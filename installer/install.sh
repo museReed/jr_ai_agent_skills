@@ -12,7 +12,7 @@ set -euo pipefail
 
 TARGET="${1:-all}"
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
-TS=$(date +%Y%m%d%H%M%S)
+TS=$(date +%Y%m%d%H%M%S)-$$
 
 backup() { [ -f "$1" ] && cp "$1" "$1.bak.$TS" && echo "  backup: $1.bak.$TS" || true; }
 
@@ -22,6 +22,25 @@ install_file() { # src dst mode
   cp "$1" "$2"
   chmod "$3" "$2"
   echo "  installed: $2"
+}
+
+install_codex_dir() { # src name
+  local dst="$HOME/.agents/skills/$2"
+  local legacy="$HOME/.codex/skills/$2"
+  local backup_dir="$HOME/.agents/skill-backups/$TS"
+  if [ -e "$dst" ] || [ -L "$dst" ]; then
+    mkdir -p "$backup_dir"
+    mv "$dst" "$backup_dir/$2"
+    echo "  backup: $backup_dir/$2"
+  fi
+  if [ -e "$legacy" ] || [ -L "$legacy" ]; then
+    mkdir -p "$backup_dir"
+    mv "$legacy" "$backup_dir/$2.legacy-codex"
+    echo "  migrated legacy: $legacy → $backup_dir/$2.legacy-codex"
+  fi
+  mkdir -p "$dst"
+  cp -R "$1/." "$dst/"
+  echo "  installed: $dst/"
 }
 
 # --- shared display layer (wrapper + watcher) ---
@@ -83,16 +102,9 @@ if [ "$TARGET" != "claude" ]; then
   install_file "$SRC_DIR/hooks/codex-session-namer.sh" "$HOME/.codex/hooks/codex-session-namer.sh" 755
   install_file "$SRC_DIR/hooks/codex-context-monitor.sh" "$HOME/.codex/hooks/codex-context-monitor.sh" 755
   for skill in auto-rename handoff structured-questions; do
-    mkdir -p "$HOME/.codex/skills/$skill"
-    backup "$HOME/.codex/skills/$skill/SKILL.md"
-    cp -R "$SRC_DIR/skills/codex/$skill/." "$HOME/.codex/skills/$skill/"
-    echo "  installed: ~/.codex/skills/$skill/"
+    install_codex_dir "$SRC_DIR/skills/codex/$skill" "$skill"
   done
-  mkdir -p "$HOME/.codex/skills/_shared"
-  backup "$HOME/.codex/skills/_shared/codex-session-rename.md"
-  cp "$SRC_DIR/skills/codex/_shared/codex-session-rename.md" "$HOME/.codex/skills/_shared/codex-session-rename.md" 2>/dev/null \
-    || echo "  skipped: ~/.codex/skills/_shared/codex-session-rename.md（已存在同內容 symlink）"
-  echo "  installed: ~/.codex/skills/_shared/codex-session-rename.md"
+  install_codex_dir "$SRC_DIR/skills/codex/_shared" "_shared"
 
   backup "$HOME/.codex/hooks.json"
   python3 - "$HOME/.codex/hooks.json" <<'PYEOF'

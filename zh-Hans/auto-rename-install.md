@@ -61,7 +61,7 @@ echo "已写入 $RC — 请重开 terminal 或 source 它"
 ```
 
 > 两个工具都用 → `./install.sh`（不带参数），两个 alias 都加。
-> installer 是幂等的：重跑安全，会自动备份被取代的文件（`*.bak.{timestamp}`）。
+> installer 是幂等的：重跑安全；Codex skill 备份放在 `~/.agents/skill-backups/{timestamp}/`，其他文件使用 `*.bak.{timestamp}`。
 
 ## 编辑器设置（VS Code 系必做，iTerm / Terminal.app 跳过）
 
@@ -146,7 +146,7 @@ cd jr_ai_agent_skills/installer
 | `session-auto-namer.sh` | `~/.claude/hooks/` | UserPromptSubmit（第一句话命名）+ PostToolUse（#5 重评、每 10 次兜底） |
 | `codex-session-namer.sh` | `~/.codex/hooks/` | 同上 + 消化 relay 文件、代写 SQLite |
 | relay 文件（Codex） | `/tmp/codex-session-namer/{pid}.pending` | 模型在 sandbox 里唯一能写的交棒点 |
-| skill | `~/.claude/skills/auto-rename/`、`~/.codex/skills/auto-rename/` | 手动 `/auto-rename` 时的规则 |
+| skill | `~/.claude/skills/auto-rename/`、`~/.agents/skills/auto-rename/` | 手动 `/auto-rename` 时的规则 |
 
 ## 迁移到其他电脑
 
