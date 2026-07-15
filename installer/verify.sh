@@ -136,6 +136,41 @@ if [ "$TARGET" != "claude" ]; then
   echo "$SIM_OUT" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['hookSpecificOutput']['hookEventName']=='UserPromptSubmit'" 2>/dev/null \
     && ok "namer 模擬：第一句話觸發命名請求" || bad "namer 模擬" "prompt 事件沒吐出合法命名請求 JSON"
   rm -f "/tmp/codex-session-namer/$$" "/tmp/codex-session-namer/$$.prompts" "/tmp/codex-session-namer/$$.default"
+
+  # context-monitor 模擬：使用當前 session 的 transcript_path 讀取 token_count
+  TMPJ=$(mktemp)
+  TMPMETA=$(mktemp)
+  TMPOUT=$(mktemp)
+  MONITOR_SESSION="verify-context-monitor"
+  MONITOR_KEY=$(STATE_SOURCE="session:$MONITOR_SESSION" python3 -c 'import hashlib, os; print(hashlib.sha256(os.environ["STATE_SOURCE"].encode()).hexdigest()[:24])')
+  MONITOR_PREFIX="/tmp/codex-context-monitor/$MONITOR_KEY"
+  rm -f "$MONITOR_PREFIX.calls" "$MONITOR_PREFIX.handoff" "$MONITOR_PREFIX.token-read-failures"
+  echo '{"payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":25000},"model_context_window":30000}}}' > "$TMPJ"
+  printf '{"session_id":"%s","transcript_path":"%s"}\n' "$MONITOR_SESSION" "$TMPJ" > "$TMPMETA"
+  bash "$HOME/.codex/hooks/codex-context-monitor.sh" < "$TMPMETA" > "$TMPOUT" 2>/dev/null
+  SIM_OUT=$(cat "$TMPOUT")
+  echo "$SIM_OUT" | grep -q "Context 已用" && ok "context-monitor 模擬：當前 session 門檻觸發" || bad "context-monitor 模擬" "當前 transcript 的 token_count 沒觸發警告"
+  rm -f "$TMPJ" "$TMPMETA" "$TMPOUT"
+  rm -f "$MONITOR_PREFIX.calls" "$MONITOR_PREFIX.handoff" "$MONITOR_PREFIX.token-read-failures"
+
+  # fallback 模擬：計數與讀取失敗次數必須按 session_id 隔離
+  FALLBACK_SESSION="verify-context-fallback-a"
+  FALLBACK_KEY=$(STATE_SOURCE="session:$FALLBACK_SESSION" python3 -c 'import hashlib, os; print(hashlib.sha256(os.environ["STATE_SOURCE"].encode()).hexdigest()[:24])')
+  FALLBACK_PREFIX="/tmp/codex-context-monitor/$FALLBACK_KEY"
+  OTHER_SESSION="verify-context-fallback-b"
+  OTHER_KEY=$(STATE_SOURCE="session:$OTHER_SESSION" python3 -c 'import hashlib, os; print(hashlib.sha256(os.environ["STATE_SOURCE"].encode()).hexdigest()[:24])')
+  OTHER_PREFIX="/tmp/codex-context-monitor/$OTHER_KEY"
+  rm -f "$FALLBACK_PREFIX.calls" "$FALLBACK_PREFIX.handoff" "$FALLBACK_PREFIX.token-read-failures"
+  rm -f "$OTHER_PREFIX.calls" "$OTHER_PREFIX.handoff" "$OTHER_PREFIX.token-read-failures"
+  echo 69 > "$FALLBACK_PREFIX.calls"
+  echo 2 > "$FALLBACK_PREFIX.token-read-failures"
+  SIM_OUT=$(printf '{"session_id":"%s"}\n' "$FALLBACK_SESSION" | bash "$HOME/.codex/hooks/codex-context-monitor.sh" 2>/dev/null)
+  echo "$SIM_OUT" | grep -q "工具呼叫數估算：70/100" && ok "context-monitor fallback：同 session 累計" || bad "context-monitor fallback" "同 session 達門檻時沒有觸發"
+  SIM_OUT=$(printf '{"session_id":"%s"}\n' "$OTHER_SESSION" | bash "$HOME/.codex/hooks/codex-context-monitor.sh" 2>/dev/null)
+  OTHER_COUNT=$(cat "$OTHER_PREFIX.calls" 2>/dev/null || echo 0)
+  [ -z "$SIM_OUT" ] && [ "$OTHER_COUNT" -eq 1 ] && ok "context-monitor fallback：跨 session 隔離" || bad "context-monitor fallback" "不同 session 沿用了既有計數"
+  rm -f "$FALLBACK_PREFIX.calls" "$FALLBACK_PREFIX.handoff" "$FALLBACK_PREFIX.token-read-failures"
+  rm -f "$OTHER_PREFIX.calls" "$OTHER_PREFIX.handoff" "$OTHER_PREFIX.token-read-failures"
 fi
 
 say ""
