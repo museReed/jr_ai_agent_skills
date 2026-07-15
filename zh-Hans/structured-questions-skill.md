@@ -378,16 +378,10 @@ Q1: 从哪个方向开始排查？
 
 ## 安装
 
-一句指令，让 AI 帮你装：
+同一段 prompt 可贴给 Claude Code 或 Codex；AI 会检测工具、确认 terminal／IDE，并一次安装三个核心 skills：
 
-**Claude Code：**
 ```
-Read docs/guides/structured-questions-install.md and execute Section A
-```
-
-**Codex CLI：**
-```
-Read docs/guides/structured-questions-install.md and execute Section B
+Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and guide me through its single installation flow.
 ```
 
 详细步骤见 [structured-questions-install.md](./structured-questions-install.md)。

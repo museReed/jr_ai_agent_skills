@@ -276,16 +276,10 @@ Difference: Review progress isn't lost just because context filled up.
 
 ## Installation
 
-One command, and the AI installs it for you:
+Paste the same prompt into Claude Code or Codex; the AI detects the tools, confirms the terminal/IDE, and installs all three core skills together:
 
-**Claude Code:**
 ```
-Read docs/guides/handoff-install.md and execute Section A
-```
-
-**Codex CLI:**
-```
-Read docs/guides/handoff-install.md and execute Section B
+Read jr_ai_agent_skills/en/auto-rename-install.md and guide me through its single installation flow.
 ```
 
 See [handoff-install.md](./handoff-install.md) for detailed steps.

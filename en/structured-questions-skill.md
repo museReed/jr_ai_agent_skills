@@ -380,16 +380,10 @@ Q1: Which direction to start investigating?
 
 ## Installation
 
-One command, and the AI installs it for you:
+Paste the same prompt into Claude Code or Codex; the AI detects the tools, confirms the terminal/IDE, and installs all three core skills together:
 
-**Claude Code:**
 ```
-Read docs/guides/structured-questions-install.md and execute Section A
-```
-
-**Codex CLI:**
-```
-Read docs/guides/structured-questions-install.md and execute Section B
+Read jr_ai_agent_skills/en/auto-rename-install.md and guide me through its single installation flow.
 ```
 
 See [structured-questions-install.md](./structured-questions-install.md) for detailed steps.

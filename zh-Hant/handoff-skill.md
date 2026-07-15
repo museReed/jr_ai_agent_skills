@@ -275,16 +275,10 @@ AI：請問你的 test file 在哪裡？目前有哪些 test case？
 
 ## 安裝
 
-一句指令，讓 AI 幫你裝：
+同一段 prompt 可貼給 Claude Code 或 Codex；AI 會偵測工具、確認 terminal／IDE，並一次安裝三個核心 skills：
 
-**Claude Code：**
 ```
-Read docs/guides/handoff-install.md and execute Section A
-```
-
-**Codex CLI：**
-```
-Read docs/guides/handoff-install.md and execute Section B
+Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and guide me through its single installation flow.
 ```
 
 詳細步驟見 [handoff-install.md](./handoff-install.md)。

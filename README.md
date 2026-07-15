@@ -39,31 +39,23 @@
 
 ### 怎麼安裝？
 
-兩步：clone 這個 repo，然後**把下面的 prompt 原封不動貼給你的 AI**（它會自己讀指南、安裝、然後帶你跑完驗證）：
+兩步：clone 這個 repo，然後**把同一段 prompt 貼給 Claude Code 或 Codex**。AI 會先偵測可用工具，必要時讓你選 Claude／Codex／兩者，再確認目前 terminal／IDE；一次安裝三個核心 skills，重開環境後帶你驗證。
 
 ```bash
 git clone https://github.com/museReed/jr_ai_agent_skills.git
 ```
 
-**用 Claude Code 的人，貼這段給 Claude：**
 ```
-Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and execute Section A,
-then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
+Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and guide me through its single installation flow. Detect the available CLIs and current terminal/IDE, confirm every required choice, install the selected target, then stop and tell me to open a new terminal and AI session before continuing with jr_ai_agent_skills/installer/VERIFICATION.md.
 ```
 
-**用 Codex CLI 的人，貼這段給 Codex：**
-```
-Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and execute Section B,
-then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
-```
-
-其他 skill 同理，換檔名即可（handoff 建議接著裝：同一個 prompt 把 `auto-rename` 換成 `handoff`）。
+不需要分別安裝 auto-rename、handoff、structured-questions；`install.sh` 會依選定目標一次安裝三個。
 
 ### 驗證與除錯
 
 | 要做什麼 | 用哪個 |
 |---|---|
-| 裝完自動檢查（29 點） | `installer/verify.sh` |
+| 裝完自動檢查 | `installer/verify.sh` |
 | 引導式 E2E 驗證（AI agent 帶用戶跑四輪，含檢查點編號） | `installer/VERIFICATION.md` |
 | 行為不對時查症狀 | `installer/TROUBLESHOOTING.md` |
 | 修不掉回報（一個指令自動收證據 + 開 issue） | `installer/diagnose.sh "一句話症狀"` |
@@ -110,31 +102,23 @@ Read jr_ai_agent_skills/installer/TROUBLESHOOTING.md and debug this for me: {一
 
 ### 怎么安装？
 
-两步：clone 这个 repo，然后**把下面的 prompt 原封不动贴给你的 AI**（它会自己读指南、安装、然后带你跑完验证）：
+两步：clone 这个 repo，然后**把同一段 prompt 贴给 Claude Code 或 Codex**。AI 会先检测可用工具，必要时让你选择 Claude／Codex／两者，再确认当前 terminal／IDE；一次安装三个核心 skills，重开环境后带你验证。
 
 ```bash
 git clone https://github.com/museReed/jr_ai_agent_skills.git
 ```
 
-**用 Claude Code 的人，贴这段给 Claude：**
 ```
-Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and execute Section A,
-then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
+Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and guide me through its single installation flow. Detect the available CLIs and current terminal/IDE, confirm every required choice, install the selected target, then stop and tell me to open a new terminal and AI session before continuing with jr_ai_agent_skills/installer/VERIFICATION.md.
 ```
 
-**用 Codex CLI 的人，贴这段给 Codex：**
-```
-Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and execute Section B,
-then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
-```
-
-其他 skill 同理，换文件名即可（handoff 建议接着装：同一个 prompt 把 `auto-rename` 换成 `handoff`）。
+无需分别安装 auto-rename、handoff、structured-questions；`install.sh` 会按选定目标一次安装三个。
 
 ### 验证与排错
 
 | 要做什么 | 用哪个 |
 |---|---|
-| 装完自动检查（29 点） | `installer/verify.sh` |
+| 装完自动检查 | `installer/verify.sh` |
 | 引导式 E2E 验证（AI agent 带用户跑四轮，含检查点编号） | `installer/VERIFICATION.md` |
 | 行为不对时查症状 | `installer/TROUBLESHOOTING.md` |
 | 修不掉回报（一个指令自动收证据 + 开 issue） | `installer/diagnose.sh "一句话症状"` |
@@ -181,31 +165,23 @@ Three skills + two hooks that take session management in Claude Code / Codex CLI
 
 ### How to install?
 
-Two steps: clone this repo, then **paste the prompt below verbatim to your AI** (it will read the guide, install, and walk you through verification):
+Two steps: clone this repo, then **paste the same prompt into Claude Code or Codex**. The AI detects available CLIs, asks you to choose Claude/Codex/both when needed, confirms the current terminal/IDE, installs all three core skills at once, and resumes verification after a fresh environment.
 
 ```bash
 git clone https://github.com/museReed/jr_ai_agent_skills.git
 ```
 
-**Claude Code users, paste this to Claude:**
 ```
-Read jr_ai_agent_skills/en/auto-rename-install.md and execute Section A,
-then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
+Read jr_ai_agent_skills/en/auto-rename-install.md and guide me through its single installation flow. Detect the available CLIs and current terminal/IDE, confirm every required choice, install the selected target, then stop and tell me to open a new terminal and AI session before continuing with jr_ai_agent_skills/installer/VERIFICATION.md.
 ```
 
-**Codex CLI users, paste this to Codex:**
-```
-Read jr_ai_agent_skills/en/auto-rename-install.md and execute Section B,
-then follow jr_ai_agent_skills/installer/VERIFICATION.md to walk me through the E2E verification.
-```
-
-Same pattern for other skills — just swap the filename (install handoff next: same prompt with `auto-rename` → `handoff`).
+Do not install auto-rename, handoff, and structured-questions separately; `install.sh` installs all three for the selected target.
 
 ### Verify & troubleshoot
 
 | Goal | Use |
 |---|---|
-| Post-install automated check (29 points) | `installer/verify.sh` |
+| Post-install automated check | `installer/verify.sh` |
 | Guided E2E verification (AI agent walks the user through 4 rounds with checkpoint IDs) | `installer/VERIFICATION.md` |
 | Something behaves wrong | `installer/TROUBLESHOOTING.md` |
 | Can't fix it — one command collects evidence and files the issue | `installer/diagnose.sh "one-line symptom"` |

@@ -1,6 +1,6 @@
 # Handoff Skill — 安装指南
 
-Read this document, then execute the installation steps for your tool (Section A or Section B). Do not ask for confirmation — just do it. Execute every step sequentially, do not skip any step. **Installation is NOT complete until you have walked the user through the "E2E 验证" section.**
+全新安装请读 [auto-rename-install.md](./auto-rename-install.md)，按单一 AI 引导流程检测 Claude／Codex 与当前 terminal／IDE，再一次安装 auto-rename、handoff、structured-questions。以下命令只供直接重装，不是分开安装 skill。**学生打开新 session 并完成三段 E2E 前，不算安装完成。**
 
 功能介绍见 [handoff-skill.md](./handoff-skill.md)。
 
@@ -20,13 +20,13 @@ Read this document, then execute the installation steps for your tool (Section A
 2. **context-monitor hook**：每次 tool call 后读 session 的真实 token 用量，
    超过 **70%** 就注入警告叫 AI 立刻写 handoff——避免 context 爆掉才想起来要交接。
 
-## Section A: Claude Code 安装
+## Claude Code 直接重装参考
 
 所有 script 都在本 repo 的 `installer/`（auto-rename 装过的话重跑同个指令即可，幂等）：
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh claude
+./install.sh claude --editor=<confirmed-editor>
 ```
 
 装了什么（handoff 相关部分）：
@@ -36,11 +36,11 @@ cd jr_ai_agent_skills/installer
 | `handoff/SKILL.md` | `~/.claude/skills/handoff/` | 交接文档产出流程 |
 | `context-monitor.sh` | `~/.claude/hooks/` | PostToolUse 读 transcript 的真实 token 数，>70% 警告 |
 
-## Section B: Codex CLI 安装
+## Codex CLI 直接重装参考
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh codex
+./install.sh codex --editor=<confirmed-editor>
 ```
 
 | 文件 | 位置 | 作用 |

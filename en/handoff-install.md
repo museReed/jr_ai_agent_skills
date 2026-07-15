@@ -1,6 +1,6 @@
 # Handoff Skill — Installation Guide
 
-Read this document, then execute the installation steps for your tool (Section A or Section B). Do not ask for confirmation — just do it. Execute every step sequentially, do not skip any step. **Installation is NOT complete until you have walked the user through the "E2E Verification" section.**
+For a fresh install, read [auto-rename-install.md](./auto-rename-install.md) and follow its single AI-guided flow. It detects Claude/Codex and the current terminal/IDE, then installs auto-rename, handoff, and structured-questions together. The commands below are direct re-install references, not separate skill installers. **Installation is NOT complete until the user opens a new session and completes all three E2E checks.**
 
 See [handoff-skill.md](./handoff-skill.md) for feature overview.
 
@@ -21,13 +21,13 @@ Two parts, installed by the same installer:
    warning telling the AI to write a handoff immediately once usage exceeds **70%** — so you never
    remember the handoff only after the context has already blown up.
 
-## Section A: Claude Code Installation
+## Claude Code direct re-install reference
 
 All scripts live in this repo's `installer/` (if you already installed auto-rename, just re-run the same command — it is idempotent):
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh claude
+./install.sh claude --editor=<confirmed-editor>
 ```
 
 What gets installed (the handoff-related parts):
@@ -37,11 +37,11 @@ What gets installed (the handoff-related parts):
 | `handoff/SKILL.md` | `~/.claude/skills/handoff/` | the handoff document workflow |
 | `context-monitor.sh` | `~/.claude/hooks/` | PostToolUse reads real token usage from the transcript, warns at >70% |
 
-## Section B: Codex CLI Installation
+## Codex CLI direct re-install reference
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh codex
+./install.sh codex --editor=<confirmed-editor>
 ```
 
 | File | Location | Role |

@@ -1,6 +1,6 @@
 # Structured Questions Skill — Installation Guide
 
-Read this document, then execute the installation steps for your tool (Section A or Section B). Do not ask for confirmation — just do it. **Installation is NOT complete until you have walked the user through the "Verification" section.**
+For a fresh install, read [auto-rename-install.md](./auto-rename-install.md) and follow its single AI-guided flow. It detects Claude/Codex and the current terminal/IDE, then installs auto-rename, handoff, and structured-questions together. The commands below are direct re-install references, not separate skill installers. **Installation is NOT complete until the user opens a new session and completes all three E2E checks.**
 
 See [structured-questions-skill.md](./structured-questions-skill.md) for feature overview.
 
@@ -15,27 +15,27 @@ When a decision has ≥ 2 viable options, the AI does not decide on its own — 
 
 > This is a pure skill (a single `SKILL.md`) — no hooks, no alias, no editor settings. `install.sh` copies it into place alongside auto-rename and handoff.
 
-## Section A: Claude Code Installation
+## Claude Code direct re-install reference
 
 All skills live in this repo's `installer/`; one command installs everything (including structured-questions):
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh claude
+./install.sh claude --editor=<confirmed-editor>
 ```
 
 Installs to `~/.claude/skills/structured-questions/SKILL.md`. Triggers: automatically (on any multi-option decision) or manually via `/structured-questions`.
 
-## Section B: Codex CLI Installation
+## Codex CLI direct re-install reference
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh codex
+./install.sh codex --editor=<confirmed-editor>
 ```
 
 Installs to `~/.agents/skills/structured-questions/SKILL.md`. Triggers: automatically or manually via `$structured-questions`. **Plan mode uses `request_user_input`; Default mode waits for a switch decision and only uses plain-text options after the user declines.**
 
-> Using both tools → `./install.sh` (no argument).
+> Using both tools → `./install.sh --editor=<confirmed-editor>`; replace the value with `cursor`, `antigravity`, `vscode`, or `native`.
 > The installer is idempotent and safe to re-run. Codex skill backups go to `~/.agents/skill-backups/{timestamp}/`; other replaced files use `*.bak.{timestamp}`.
 
 ---

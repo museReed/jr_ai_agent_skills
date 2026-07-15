@@ -1,6 +1,6 @@
 # Structured Questions Skill — 安装指南
 
-Read this document, then execute the installation steps for your tool (Section A or Section B). Do not ask for confirmation — just do it. **Installation is NOT complete until you have walked the user through the "验证" section.**
+全新安装请读 [auto-rename-install.md](./auto-rename-install.md)，按单一 AI 引导流程检测 Claude／Codex 与当前 terminal／IDE，再一次安装 auto-rename、handoff、structured-questions。以下命令只供直接重装，不是分开安装 skill。**学生打开新 session 并完成三段 E2E 前，不算安装完成。**
 
 功能介绍见 [structured-questions-skill.md](./structured-questions-skill.md)。
 
@@ -15,27 +15,27 @@ Read this document, then execute the installation steps for your tool (Section A
 
 > 这是纯 skill（一份 `SKILL.md`），没有 hook、没有 alias、不需编辑器设置。`install.sh` 会连同 auto-rename、handoff 一起把它复制到位。
 
-## Section A: Claude Code 安装
+## Claude Code 直接重装参考
 
 所有 skill 都在本 repo 的 `installer/`，一个指令装完（含 structured-questions）：
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh claude
+./install.sh claude --editor=<confirmed-editor>
 ```
 
 装到 `~/.claude/skills/structured-questions/SKILL.md`。触发方式：自动（遇到多选项决策）或手动输入 `/structured-questions`。
 
-## Section B: Codex CLI 安装
+## Codex CLI 直接重装参考
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh codex
+./install.sh codex --editor=<confirmed-editor>
 ```
 
 装到 `~/.agents/skills/structured-questions/SKILL.md`。触发方式：自动或手动输入 `$structured-questions`。**Plan mode 使用 `request_user_input`；Default mode 先等待切换确认，拒绝后才使用文本选项。**
 
-> 两个工具都用 → `./install.sh`（不带参数）。
+> 两个工具都用 → `./install.sh --editor=<confirmed-editor>`；将值替换为 `cursor`、`antigravity`、`vscode` 或 `native`。
 > installer 是幂等的：重跑安全；Codex skill 备份放在 `~/.agents/skill-backups/{timestamp}/`，其他文件使用 `*.bak.{timestamp}`。
 
 ---
