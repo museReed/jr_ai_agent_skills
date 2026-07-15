@@ -398,7 +398,7 @@ Read docs/guides/structured-questions-install.md and execute Section B
 
 | | Claude Code | Codex CLI |
 |---|---|---|
-| 互動 UI | 隨時可用（`AskUserQuestion` 工具） | 僅 Plan mode 可用 |
-| 非 Plan mode | 不適用 | 自動切換為純文字選項格式 |
+| 互動 UI | 隨時可用（`AskUserQuestion` 工具） | Plan mode 使用 `request_user_input` |
+| Default mode | 不適用 | 先停下詢問是否切換；明確拒絕後才用純文字選項 |
 | 安裝路徑 | `.claude/skills/structured-questions/SKILL.md` | `.agents/skills/structured-questions/SKILL.md` |
 | 觸發方式 | `/structured-questions` 或自動觸發 | `$structured-questions` 或自動觸發 |

@@ -11,7 +11,7 @@ Read this document, then execute the installation steps for your tool (Section A
 
 ## 這個 skill 做什麼
 
-遇到「有 ≥ 2 個可行方案」的決策時，AI 不自己拍板，而是把選項用結構化格式列給你選——每個選項附 ✨ 推薦、😃 優點、😫 缺點。Claude Code 用互動式 `AskUserQuestion` 選單；Codex 在 Plan mode 用 `ask_user_question` 互動 UI、其他 mode 退回純文字選項。
+遇到「有 ≥ 2 個可行方案」的決策時，AI 不自己拍板，而是把選項用結構化格式列給你選——每個選項附推薦與取捨。Claude Code 用互動式 `AskUserQuestion` 選單；Codex 在 Plan mode 用 `request_user_input`，Default mode 會先停下詢問是否切換，只有明確拒絕後才退回純文字選項。
 
 > 這是純 skill（一份 `SKILL.md`），沒有 hook、沒有 alias、不需編輯器設定。`install.sh` 會連同 auto-rename、handoff 一起把它複製到位。
 
@@ -33,7 +33,7 @@ cd jr_ai_agent_skills/installer
 ./install.sh codex
 ```
 
-裝到 `~/.agents/skills/structured-questions/SKILL.md`。觸發方式：自動或手動輸入 `$structured-questions`。**Plan mode 使用互動式 UI；其他 mode 使用文字選項格式。**
+裝到 `~/.agents/skills/structured-questions/SKILL.md`。觸發方式：自動或手動輸入 `$structured-questions`。**Plan mode 使用 `request_user_input`；Default mode 先等待切換確認，拒絕後才使用文字選項。**
 
 > 兩個工具都用 → `./install.sh`（不帶參數）。
 > installer 是冪等的：重跑安全；Codex skill 備份放在 `~/.agents/skill-backups/{timestamp}/`，其他檔案使用 `*.bak.{timestamp}`。
@@ -71,10 +71,13 @@ cd jr_ai_agent_skills/installer
 ### Test 5: Codex 專用 — Plan mode vs 非 Plan mode
 
 > **5a — Plan mode**：進入 Plan mode（`/plan`），然後說「幫我選資料庫」
-> **預期**：出現互動式選項 UI（`ask_user_question` 工具）
+> **預期**：出現互動式選項 UI（`request_user_input` 工具）
 >
-> **5b — 非 Plan mode**：在預設 mode 說「幫我選資料庫」
-> **預期**：先出現 💡 提示建議切 `/plan`，接著用 `Q1: A/B/C` 純文字格式列選項
+> **5b — Default mode**：在 Default mode 說「幫我選資料庫」
+> **預期 1**：只出現切換提示，然後停下；此時不得出現資料庫文字選項
+>
+> 接著回覆「不切換」
+> **預期 2**：同一輪接續原問題，改用 `Q1: A/B/C` 純文字格式列選項
 
 ### 驗證結果判讀
 
@@ -84,4 +87,4 @@ cd jr_ai_agent_skills/installer
 | Test 1-2 沒觸發 | 檢查 SKILL.md 的 `description` 是否包含 trigger keywords |
 | Test 3 沒觸發 | 檢查 frontmatter `name` 是否拼對（`structured-questions`） |
 | Test 4 誤觸發 | 檢查 SKILL.md 的「When NOT to Use」段落是否清楚 |
-| Test 5b 沒有 fallback | 檢查 Codex 版 SKILL.md 的 Mode Detection 段落 |
+| Test 5b 未先停頓，或拒絕後沒有 fallback | 檢查 Codex 版 SKILL.md 的 Mode Detection 段落 |

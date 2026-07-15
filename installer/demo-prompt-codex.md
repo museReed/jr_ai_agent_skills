@@ -5,8 +5,10 @@
 
 1. **問配色** — 用 `$structured-questions` 問我這個示範網頁想要的：
    網頁類型、主色調、視覺風格、字體個性。一次問完，每題標 ✨ 推薦、😃 優點、😫 缺點。
-   > 想要互動式選單，先輸入 `/plan` 進 Plan mode（`ask_user_question` tool 只在 Plan mode 可用）；
-   > 不方便切就用純文字選項格式（`Q1: A/B/C`），我回覆編號即可。
+   > `$structured-questions` 必須走三段流程：
+   > 1. Default mode 先顯示固定切換提示並停止，不得同時列文字問題。
+   > 2. 我接受切換時，引導我輸入 `/plan 繼續剛才的 structured questions`；切換後用 `request_user_input` 繼續原問題。
+   > 3. 我回覆「不切換」時，才在同一輪改列完整的 `Q1: A/B/C` 文字選項。
 
 2. **生成網頁** — 用 `$frontend-design` 把答案做成網頁：
    - 做成一個**單檔自包含** HTML：CSS / JS 全部 inline 寫在同一個檔
