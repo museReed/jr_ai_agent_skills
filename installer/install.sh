@@ -3,16 +3,33 @@
 # for Claude Code and/or Codex CLI. Idempotent; backs up files it replaces.
 #
 # Usage:
-#   ./install.sh            # install for both tools
-#   ./install.sh claude     # Claude Code only
-#   ./install.sh codex      # Codex only
+#   ./install.sh [claude|codex] --editor=cursor|antigravity|vscode|native
 #
 # Works on macOS / Linux. Requires: bash, python3; sqlite3 for Codex sidebar names.
 set -euo pipefail
 
-TARGET="${1:-all}"
+TARGET="all"
+CONFIRMED_EDITOR=""
+for arg in "$@"; do
+  case "$arg" in
+    claude|codex|all) TARGET="$arg" ;;
+    --editor=*) CONFIRMED_EDITOR="${arg#--editor=}" ;;
+    *) echo "Usage: ./install.sh [claude|codex] --editor=cursor|antigravity|vscode|native" >&2; exit 2 ;;
+  esac
+done
+case "$CONFIRMED_EDITOR" in
+  cursor|antigravity|vscode|native) ;;
+  "") echo "Missing required confirmed editor: --editor=cursor|antigravity|vscode|native" >&2; exit 2 ;;
+  *) echo "Invalid editor: $CONFIRMED_EDITOR" >&2; exit 2 ;;
+esac
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 TS=$(date +%Y%m%d%H%M%S)-$$
+
+case "$TARGET" in
+  claude) TARGET_LABEL="Claude Code" ;;
+  codex) TARGET_LABEL="Codex CLI" ;;
+  all) TARGET_LABEL="Claude Code + Codex CLI" ;;
+esac
 
 backup() { [ -f "$1" ] && cp "$1" "$1.bak.$TS" && echo "  backup: $1.bak.$TS" || true; }
 
@@ -135,12 +152,23 @@ PYEOF
 fi
 
 echo
-echo "Done. The AI guiding your install should add these aliases to your shell rc"
+echo "Installed target: $TARGET_LABEL"
+echo "The AI guiding your install should add these aliases to your shell rc"
 echo "(~/.zshrc or ~/.bashrc) for you. If it didn't, add them manually as a fallback:"
 [ "$TARGET" != "codex" ]  && echo "  alias claude='\$HOME/.local/bin/myclaude'"
 [ "$TARGET" != "claude" ] && echo "  alias codex='\$HOME/.local/bin/mycodex'"
 echo
-echo "Then restart your terminal. Tab titles auto-update right after your first message."
+echo "REQUIRED NEXT STEP: stop here, open a NEW terminal, and start a NEW AI session."
+echo "The current session has not loaded the newly installed skills, so do not run the manual E2E here."
+echo "In the new session, continue with VERIFICATION.md. Installation is not fully verified until all three skill tests pass."
+case "$TARGET" in
+  claude) VERIFY_COMMAND="./verify.sh claude --editor=$CONFIRMED_EDITOR" ;;
+  codex) VERIFY_COMMAND="./verify.sh codex --editor=$CONFIRMED_EDITOR" ;;
+  all) VERIFY_COMMAND="./verify.sh --editor=$CONFIRMED_EDITOR" ;;
+esac
+echo
+echo "Copy/paste this continuation prompt into the NEW AI session:"
+echo "  Read $SRC_DIR/VERIFICATION.md and guide me through all three E2E checks. The installed target is $TARGET_LABEL and my confirmed editor is $CONFIRMED_EDITOR. First run: cd $SRC_DIR && $VERIFY_COMMAND"
 echo
 echo "安裝後 smoke tests（請在新的 terminal / session 執行）："
 if [ "$TARGET" = "claude" ]; then

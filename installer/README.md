@@ -5,15 +5,25 @@
 
 ## 安裝
 
+學生建議把上層 `zh-Hant/auto-rename-install.md`（或對應語言版本）的單一安裝 prompt 貼給 Claude Code 或 Codex。AI 會先執行只讀偵測：
+
+```bash
+python3 detect-environment.py
+```
+
+若 Claude/Codex 兩者都存在，AI 會用結構化問題讓學生選「兩者／Claude／Codex」；只有一個時自動選定，兩者都沒有則停止。AI 也會根據父程序、`TERM_PROGRAM`、設定檔三層證據推測 terminal／IDE，但必須由學生確認後，才能對指定 IDE 執行 `configure-editor.py`。
+
+底層 installer 保持非互動，且一個命令會安裝該目標的 auto-rename、handoff、structured-questions 三個 skills：
+
 ```bash
 git clone https://github.com/museReed/jr_ai_agent_skills.git
 cd jr_ai_agent_skills/installer
-./install.sh          # 兩個工具都裝
-./install.sh claude   # 只裝 Claude Code
-./install.sh codex    # 只裝 Codex
+./install.sh --editor=<confirmed-editor>          # 兩個工具都裝
+./install.sh claude --editor=<confirmed-editor>   # 只裝 Claude Code
+./install.sh codex --editor=<confirmed-editor>    # 只裝 Codex
 ```
 
-裝完把印出的 alias 加進 `~/.zshrc`，重開 terminal。之後照常打 `claude` / `codex`，
+裝完把印出的 alias 加進 `~/.zshrc`，然後必須開新的 terminal 與新的 AI session，把 installer 印出的 continuation prompt 貼進去，再依 `VERIFICATION.md` 完成三段 E2E。驗證時傳入 `--editor=cursor|antigravity|vscode|native`，只檢查學生確認的 terminal／IDE。之後照常打 `claude` / `codex`，
 第 3 次 tool call 自動用 git branch 命名、第 5 次由 AI 取更好的名字（`{emoji} {中文敘述}`）。
 
 ## 架構：命名層 / 持久層 / 顯示層
@@ -42,7 +52,7 @@ cd jr_ai_agent_skills/installer
   relay 檔，hook（unsandboxed）在下一次 PostToolUse 代寫。
 - **Claude Code 內建 title 會蓋掉自訂名**：wrapper 用
   `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1` 關掉。
-- 不需要設定 `terminal.integrated.tabs.title: ${sequence}`——直寫 tty 繞過模板。
+- wrapper 會直寫 tty 傳送 OSC；Cursor、Antigravity、VS Code 仍須把 `terminal.integrated.tabs.title` 設成 `${sequence}`，terminal tab 才會採用該標題。
 
 ## 檔案清單
 
@@ -66,7 +76,7 @@ Codex 沒 wrapper 時只有 sidebar 名（SQLite），terminal tab 不會動。
 
 - Windows 未支援（無 `/dev/ttysXXX`，ConPTY 需另行設計）
 - Antigravity 直接啟動（非 terminal 內）時，sidebar 命名靠 SQLite 路徑；
-  title script 整合見 repo 內 `zh-Hant/auto-rename-install.md` Section C/D
+  terminal title 機制與排查見 `zh-Hant/auto-rename-install.md` 的「機制細節」及 `TROUBLESHOOTING.md`
 - 名稱請避免單引號
 
 ## 驗證

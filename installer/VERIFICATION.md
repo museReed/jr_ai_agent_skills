@@ -5,15 +5,25 @@
 
 ## 事前準備
 
-1. 先跑自動檢查；有 FAIL 時先修復，不進入人工測試：
+1. 確認安裝前曾執行只讀偵測，且 AI 記錄了學生最後選定的安裝目標與 terminal／IDE：
 
 ```bash
 cd <本 repo>/installer
-./verify.sh          # 或 ./verify.sh claude / ./verify.sh codex
+python3 detect-environment.py
 ```
 
-2. 每個人工測試都使用新的 terminal / session，確保剛安裝的 skill 已重新載入。
-3. handoff 會建立文件與 commit，只能在下方指令建立的臨時 repo 中測試。
+`recommended_install_target` 是依本機 CLI 推薦，不取代學生在兩者皆有時的選擇；`terminal.detected` 也只是證據，不取代學生確認。只有學生確認的 Cursor、Antigravity 或 VS Code 可被修改；native／other 必須不改 editor settings。
+
+2. 先跑自動檢查；有 FAIL 時先修復，不進入人工測試：
+
+```bash
+cd <本 repo>/installer
+./verify.sh --editor=<confirmed-editor>  # 換成 cursor / antigravity / vscode / native
+# 或加 claude / codex，只驗證實際安裝目標
+```
+
+3. installer 完成後，舊 AI session 必須停止。以下人工測試全部在新的 terminal / session 執行，確保剛安裝的 skill 已重新載入。
+4. handoff 會建立文件與 commit，只能在下方指令建立的臨時 repo 中測試。
 
 ## A. auto-rename
 

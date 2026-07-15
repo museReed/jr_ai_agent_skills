@@ -13,12 +13,18 @@ set -u
 
 TARGET="all"
 REPORT=""
+CONFIRMED_EDITOR="${CONFIRMED_EDITOR:-}"
 for arg in "$@"; do
   case "$arg" in
     claude|codex) TARGET="$arg" ;;
     --report) REPORT="verify-report-$(date +%Y%m%d-%H%M%S).md" ;;
+    --editor=*) CONFIRMED_EDITOR="${arg#--editor=}" ;;
   esac
 done
+case "$CONFIRMED_EDITOR" in
+  ""|cursor|antigravity|vscode|native) ;;
+  *) echo "Usage: ./verify.sh [claude|codex] [--editor=cursor|antigravity|vscode|native] [--report]" >&2; exit 2 ;;
+esac
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 PASS=0; FAIL=0; WARN=0
@@ -66,6 +72,11 @@ say ""
 say "▍0. 依賴與環境"
 command -v python3 >/dev/null && ok "python3" || bad "python3" "hooks 需要它解析 JSON"
 command -v sqlite3 >/dev/null && ok "sqlite3" || warn "sqlite3" "Codex sidebar 改名需要它"
+if PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$SRC_DIR/tests" -p 'test_*.py' >/dev/null 2>&1; then
+  ok "安裝偵測與單一 IDE 設定 helper"
+else
+  bad "安裝偵測與單一 IDE 設定 helper" "執行 python3 -m unittest discover -s tests -p 'test_*.py' 查看錯誤"
+fi
 case "$(locale 2>/dev/null | grep -m1 LC_CTYPE)" in
   *UTF-8*|*utf8*) ok "locale UTF-8" ;;
   *) warn "locale UTF-8" "LANG/LC_CTYPE 非 UTF-8，中文 tab 名可能亂碼；在 ~/.zshrc 加 export LANG=en_US.UTF-8" ;;
@@ -175,19 +186,39 @@ fi
 
 say ""
 say "▍4. 編輯器 terminal 設定（VS Code 系才需要）"
-FOUND_EDITOR=""
-for APP in "Cursor" "Antigravity" "Code"; do
+if [ "$CONFIRMED_EDITOR" = "native" ]; then
+  ok "已確認 native／other terminal：不修改 editor settings"
+elif [ -n "$CONFIRMED_EDITOR" ]; then
+  case "$CONFIRMED_EDITOR" in
+    cursor) APP="Cursor" ;;
+    antigravity) APP="Antigravity" ;;
+    vscode) APP="Code" ;;
+  esac
   SETTINGS="$HOME/Library/Application Support/$APP/User/settings.json"
-  [ -f "$SETTINGS" ] || SETTINGS="$HOME/.config/$APP/User/settings.json"   # Linux
-  [ -f "$SETTINGS" ] || continue
-  FOUND_EDITOR=1
+  [ -f "$SETTINGS" ] || SETTINGS="$HOME/.config/$APP/User/settings.json"
   if grep -qs '"terminal.integrated.tabs.title".*sequence' "$SETTINGS"; then
-    ok "${APP}：tabs.title 含 \${sequence}"
+    ok "已確認的 ${APP}：tabs.title 含 \${sequence}"
   else
-    warn "${APP}：tabs.title 未設 \${sequence}" "該編輯器的 terminal tab 不會顯示改名；在 settings.json 加 \"terminal.integrated.tabs.title\": \"\${sequence}\""
+    bad "已確認的 ${APP}：tabs.title 含 \${sequence}" "設定不存在或尚未完成"
   fi
-done
-[ -z "$FOUND_EDITOR" ] && say "  （沒偵測到 VS Code 系編輯器，iTerm/Terminal.app 原生支援，跳過）"
+  for OTHER in "Cursor" "Antigravity" "Code"; do
+    [ "$OTHER" = "$APP" ] && continue
+    OTHER_SETTINGS="$HOME/Library/Application Support/$OTHER/User/settings.json"
+    [ -f "$OTHER_SETTINGS" ] || OTHER_SETTINGS="$HOME/.config/$OTHER/User/settings.json"
+    [ -f "$OTHER_SETTINGS" ] && say "  INFO  未選取的 ${OTHER} 設定檔存在；不納入 PASS/FAIL，也不修改。"
+  done
+else
+  say "  （未提供 --editor；以下只列資訊。正式驗證請傳入學生確認的 editor。）"
+  FOUND_EDITOR=""
+  for APP in "Cursor" "Antigravity" "Code"; do
+    SETTINGS="$HOME/Library/Application Support/$APP/User/settings.json"
+    [ -f "$SETTINGS" ] || SETTINGS="$HOME/.config/$APP/User/settings.json"
+    [ -f "$SETTINGS" ] || continue
+    FOUND_EDITOR=1
+    say "  INFO  ${APP} 設定檔存在；未選取，不納入 PASS/FAIL。"
+  done
+  [ -z "$FOUND_EDITOR" ] && say "  INFO  沒偵測到 VS Code 系設定檔。"
+fi
 
 say ""
 say "════════════════════════════════════════════"
