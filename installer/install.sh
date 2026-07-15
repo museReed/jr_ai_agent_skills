@@ -3,16 +3,33 @@
 # for Claude Code and/or Codex CLI. Idempotent; backs up files it replaces.
 #
 # Usage:
-#   ./install.sh            # install for both tools
-#   ./install.sh claude     # Claude Code only
-#   ./install.sh codex      # Codex only
+#   ./install.sh [claude|codex] --editor=cursor|antigravity|vscode|native
 #
 # Works on macOS / Linux. Requires: bash, python3; sqlite3 for Codex sidebar names.
 set -euo pipefail
 
-TARGET="${1:-all}"
+TARGET="all"
+CONFIRMED_EDITOR=""
+for arg in "$@"; do
+  case "$arg" in
+    claude|codex|all) TARGET="$arg" ;;
+    --editor=*) CONFIRMED_EDITOR="${arg#--editor=}" ;;
+    *) echo "Usage: ./install.sh [claude|codex] --editor=cursor|antigravity|vscode|native" >&2; exit 2 ;;
+  esac
+done
+case "$CONFIRMED_EDITOR" in
+  cursor|antigravity|vscode|native) ;;
+  "") echo "Missing required confirmed editor: --editor=cursor|antigravity|vscode|native" >&2; exit 2 ;;
+  *) echo "Invalid editor: $CONFIRMED_EDITOR" >&2; exit 2 ;;
+esac
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
-TS=$(date +%Y%m%d%H%M%S)
+TS=$(date +%Y%m%d%H%M%S)-$$
+
+case "$TARGET" in
+  claude) TARGET_LABEL="Claude Code" ;;
+  codex) TARGET_LABEL="Codex CLI" ;;
+  all) TARGET_LABEL="Claude Code + Codex CLI" ;;
+esac
 
 backup() { [ -f "$1" ] && cp "$1" "$1.bak.$TS" && echo "  backup: $1.bak.$TS" || true; }
 
@@ -22,6 +39,25 @@ install_file() { # src dst mode
   cp "$1" "$2"
   chmod "$3" "$2"
   echo "  installed: $2"
+}
+
+install_codex_dir() { # src name
+  local dst="$HOME/.agents/skills/$2"
+  local legacy="$HOME/.codex/skills/$2"
+  local backup_dir="$HOME/.agents/skill-backups/$TS"
+  if [ -e "$dst" ] || [ -L "$dst" ]; then
+    mkdir -p "$backup_dir"
+    mv "$dst" "$backup_dir/$2"
+    echo "  backup: $backup_dir/$2"
+  fi
+  if [ -e "$legacy" ] || [ -L "$legacy" ]; then
+    mkdir -p "$backup_dir"
+    mv "$legacy" "$backup_dir/$2.legacy-codex"
+    echo "  migrated legacy: $legacy → $backup_dir/$2.legacy-codex"
+  fi
+  mkdir -p "$dst"
+  cp -R "$1/." "$dst/"
+  echo "  installed: $dst/"
 }
 
 # --- shared display layer (wrapper + watcher) ---
@@ -83,16 +119,9 @@ if [ "$TARGET" != "claude" ]; then
   install_file "$SRC_DIR/hooks/codex-session-namer.sh" "$HOME/.codex/hooks/codex-session-namer.sh" 755
   install_file "$SRC_DIR/hooks/codex-context-monitor.sh" "$HOME/.codex/hooks/codex-context-monitor.sh" 755
   for skill in auto-rename handoff structured-questions; do
-    mkdir -p "$HOME/.codex/skills/$skill"
-    backup "$HOME/.codex/skills/$skill/SKILL.md"
-    cp -R "$SRC_DIR/skills/codex/$skill/." "$HOME/.codex/skills/$skill/"
-    echo "  installed: ~/.codex/skills/$skill/"
+    install_codex_dir "$SRC_DIR/skills/codex/$skill" "$skill"
   done
-  mkdir -p "$HOME/.codex/skills/_shared"
-  backup "$HOME/.codex/skills/_shared/codex-session-rename.md"
-  cp "$SRC_DIR/skills/codex/_shared/codex-session-rename.md" "$HOME/.codex/skills/_shared/codex-session-rename.md" 2>/dev/null \
-    || echo "  skipped: ~/.codex/skills/_shared/codex-session-rename.md（已存在同內容 symlink）"
-  echo "  installed: ~/.codex/skills/_shared/codex-session-rename.md"
+  install_codex_dir "$SRC_DIR/skills/codex/_shared" "_shared"
 
   backup "$HOME/.codex/hooks.json"
   python3 - "$HOME/.codex/hooks.json" <<'PYEOF'
@@ -123,11 +152,50 @@ PYEOF
 fi
 
 echo
-echo "Done. The AI guiding your install should add these aliases to your shell rc"
+echo "Installed target: $TARGET_LABEL"
+echo "The AI guiding your install should add these aliases to your shell rc"
 echo "(~/.zshrc or ~/.bashrc) for you. If it didn't, add them manually as a fallback:"
 [ "$TARGET" != "codex" ]  && echo "  alias claude='\$HOME/.local/bin/myclaude'"
 [ "$TARGET" != "claude" ] && echo "  alias codex='\$HOME/.local/bin/mycodex'"
 echo
-echo "Then restart your terminal. Tab titles auto-update right after your first message."
+echo "REQUIRED NEXT STEP: stop here, open a NEW terminal, and start a NEW AI session."
+echo "The current session has not loaded the newly installed skills, so do not run the manual E2E here."
+echo "In the new session, continue with VERIFICATION.md. Installation is not fully verified until all three skill tests pass."
+case "$TARGET" in
+  claude) VERIFY_COMMAND="./verify.sh claude --editor=$CONFIRMED_EDITOR" ;;
+  codex) VERIFY_COMMAND="./verify.sh codex --editor=$CONFIRMED_EDITOR" ;;
+  all) VERIFY_COMMAND="./verify.sh --editor=$CONFIRMED_EDITOR" ;;
+esac
 echo
-echo "Next: run ./verify.sh (from this directory) to check the install end-to-end."
+echo "Copy/paste this continuation prompt into the NEW AI session:"
+echo "  Read $SRC_DIR/VERIFICATION.md and guide me through all three E2E checks. The installed target is $TARGET_LABEL and my confirmed editor is $CONFIRMED_EDITOR. First run: cd $SRC_DIR && $VERIFY_COMMAND"
+echo
+echo "安裝後 smoke tests（請在新的 terminal / session 執行）："
+if [ "$TARGET" = "claude" ]; then
+  echo "  1. auto-rename：送出第一個任務，確認 terminal tab 變成「{emoji} 任務描述」。"
+elif [ "$TARGET" = "codex" ]; then
+  echo "  1. auto-rename：送出第一個任務，確認 terminal tab 與 Codex sidebar 都變成任務名稱。"
+else
+  echo "  1. auto-rename：分別在 Claude/Codex 送出第一個任務，確認 terminal tab；Codex 再確認 sidebar。"
+fi
+echo "  2. handoff：用 verify 提供的臨時 repo + 小 context window 完整執行，確認 handoff 文件、commit 與 📦 改名。"
+if [ "$TARGET" = "claude" ]; then
+  echo "  3. structured-questions（Claude）：輸入 /structured-questions 我想轉職，確認出現結構化選項。"
+elif [ "$TARGET" = "codex" ]; then
+  echo "  3. structured-questions（Codex）：在 Default mode 輸入 \$structured-questions 我想轉職，確認先停下詢問是否切換。"
+else
+  echo "  3a. structured-questions（Claude）：輸入 /structured-questions 我想轉職，確認出現結構化選項。"
+  echo "  3b. structured-questions（Codex）：在 Default mode 輸入 \$structured-questions 我想轉職，確認先停下詢問是否切換。"
+fi
+echo
+if [ "$TARGET" = "claude" ]; then
+  echo "Next: run ./verify.sh claude for the full guided E2E."
+elif [ "$TARGET" = "codex" ]; then
+  echo "Next: run ./verify.sh codex for the full guided E2E."
+else
+  echo "Next: run ./verify.sh for the full guided E2E."
+fi
+echo
+echo "選配：一條龍 demo（frontend-design / skill-creator / Playwright，官方第三方 skill）——"
+echo "  ./install-external-skills.sh        # 需網路 + Node；Claude 與 Codex 都裝"
+echo "  裝完它會提示你：開一個【新的】session，再貼上 demo-prompt-claude.md 或 demo-prompt-codex.md"

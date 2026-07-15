@@ -170,16 +170,10 @@ Codex sidebar：
 
 ## 安装
 
-一句指令，让 AI 帮你装：
+同一段 prompt 可贴给 Claude Code 或 Codex；AI 会检测工具、确认 terminal／IDE，并一次安装三个核心 skills：
 
-**Claude Code：**
 ```
-Read docs/guides/auto-rename-install.md and execute Section A
-```
-
-**Codex CLI：**
-```
-Read docs/guides/auto-rename-install.md and execute Section B
+Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and guide me through its single installation flow.
 ```
 
 详细步骤见 [auto-rename-install.md](./auto-rename-install.md)。
@@ -193,5 +187,5 @@ Read docs/guides/auto-rename-install.md and execute Section B
 | 自动触发 | 有（PostToolUse hook 在第 5 次 tool call 触发） | 无 |
 | 命名方式 | 写文件 `~/.claude/session-names/${PID}.txt` | 写 SQLite `~/.codex/state_*.sqlite` |
 | Terminal tab 同步 | 直接发 OSC escape 改 tab title | 需用 `mycodex` wrapper 启动才会同步 |
-| 安装位置 | `.claude/skills/auto-rename/SKILL.md` | `.codex/skills/auto-rename/SKILL.md` |
+| 安装位置 | `.claude/skills/auto-rename/SKILL.md` | `.agents/skills/auto-rename/SKILL.md` |
 | 手动触发 | `/auto-rename` | `$auto-rename` |

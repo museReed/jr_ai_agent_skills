@@ -380,16 +380,10 @@ Q1: Which direction to start investigating?
 
 ## Installation
 
-One command, and the AI installs it for you:
+Paste the same prompt into Claude Code or Codex; the AI detects the tools, confirms the terminal/IDE, and installs all three core skills together:
 
-**Claude Code:**
 ```
-Read docs/guides/structured-questions-install.md and execute Section A
-```
-
-**Codex CLI:**
-```
-Read docs/guides/structured-questions-install.md and execute Section B
+Read jr_ai_agent_skills/en/auto-rename-install.md and guide me through its single installation flow.
 ```
 
 See [structured-questions-install.md](./structured-questions-install.md) for detailed steps.
@@ -400,7 +394,7 @@ See [structured-questions-install.md](./structured-questions-install.md) for det
 
 | | Claude Code | Codex CLI |
 |---|---|---|
-| Interactive UI | Available anytime (`AskUserQuestion` tool) | Only available in Plan mode |
-| Non-Plan mode | N/A | Automatically switches to plain text option format |
-| Install path | `.claude/skills/structured-questions/SKILL.md` | `.codex/skills/structured-questions/SKILL.md` |
+| Interactive UI | Available anytime (`AskUserQuestion` tool) | Plan mode uses `request_user_input` |
+| Default mode | N/A | Pauses to ask whether to switch; uses plain text only after an explicit refusal |
+| Install path | `.claude/skills/structured-questions/SKILL.md` | `.agents/skills/structured-questions/SKILL.md` |
 | Trigger method | `/structured-questions` or auto trigger | `$structured-questions` or auto trigger |

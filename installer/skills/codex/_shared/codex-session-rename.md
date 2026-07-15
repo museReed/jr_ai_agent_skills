@@ -70,7 +70,7 @@ updated_at_ms   INTEGER — 最後更新時間（毫秒），用來辨識當前 
 在 skill 的 SKILL.md 裡寫：
 
 ```
-改名方法 → Read `~/.codex/skills/_shared/codex-session-rename.md`
+改名方法 → Read `~/.agents/skills/_shared/codex-session-rename.md`
 ```
 
 不要把指令複製到每個 skill 裡 — 改版時只要更新這一份。

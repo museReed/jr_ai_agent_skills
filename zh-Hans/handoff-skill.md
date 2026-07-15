@@ -275,16 +275,10 @@ AI：请问你的 test file 在哪里？目前有哪些 test case？
 
 ## 安装
 
-一句指令，让 AI 帮你装：
+同一段 prompt 可贴给 Claude Code 或 Codex；AI 会检测工具、确认 terminal／IDE，并一次安装三个核心 skills：
 
-**Claude Code：**
 ```
-Read docs/guides/handoff-install.md and execute Section A
-```
-
-**Codex CLI：**
-```
-Read docs/guides/handoff-install.md and execute Section B
+Read jr_ai_agent_skills/zh-Hans/auto-rename-install.md and guide me through its single installation flow.
 ```
 
 详细步骤见 [handoff-install.md](./handoff-install.md)。
@@ -297,6 +291,6 @@ Read docs/guides/handoff-install.md and execute Section B
 |---|---|---|
 | 自动触发 | 有（context-monitor hook 在 70% 时警告） | 无 |
 | Session 封存改名 | 写文件 `~/.claude/session-names/${PID}.txt` + OSC escape | 写 SQLite `~/.codex/state_*.sqlite` |
-| 安装位置 | `.claude/skills/handoff/SKILL.md` | `.codex/skills/handoff/SKILL.md` |
+| 安装位置 | `.claude/skills/handoff/SKILL.md` | `.agents/skills/handoff/SKILL.md` |
 | 手动触发 | `/handoff` | `$handoff` |
 | 交接文件位置 | `docs/handoff/{date}-{topic}.md`（两边相同） | 相同 |

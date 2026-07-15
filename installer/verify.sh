@@ -13,12 +13,18 @@ set -u
 
 TARGET="all"
 REPORT=""
+CONFIRMED_EDITOR="${CONFIRMED_EDITOR:-}"
 for arg in "$@"; do
   case "$arg" in
     claude|codex) TARGET="$arg" ;;
     --report) REPORT="verify-report-$(date +%Y%m%d-%H%M%S).md" ;;
+    --editor=*) CONFIRMED_EDITOR="${arg#--editor=}" ;;
   esac
 done
+case "$CONFIRMED_EDITOR" in
+  ""|cursor|antigravity|vscode|native) ;;
+  *) echo "Usage: ./verify.sh [claude|codex] [--editor=cursor|antigravity|vscode|native] [--report]" >&2; exit 2 ;;
+esac
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
 PASS=0; FAIL=0; WARN=0
@@ -66,6 +72,11 @@ say ""
 say "▍0. 依賴與環境"
 command -v python3 >/dev/null && ok "python3" || bad "python3" "hooks 需要它解析 JSON"
 command -v sqlite3 >/dev/null && ok "sqlite3" || warn "sqlite3" "Codex sidebar 改名需要它"
+if PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$SRC_DIR/tests" -p 'test_*.py' >/dev/null 2>&1; then
+  ok "安裝偵測與單一 IDE 設定 helper"
+else
+  bad "安裝偵測與單一 IDE 設定 helper" "執行 python3 -m unittest discover -s tests -p 'test_*.py' 查看錯誤"
+fi
 case "$(locale 2>/dev/null | grep -m1 LC_CTYPE)" in
   *UTF-8*|*utf8*) ok "locale UTF-8" ;;
   *) warn "locale UTF-8" "LANG/LC_CTYPE 非 UTF-8，中文 tab 名可能亂碼；在 ~/.zshrc 加 export LANG=en_US.UTF-8" ;;
@@ -117,11 +128,17 @@ if [ "$TARGET" != "claude" ]; then
   say "▍3. Codex"
   check_file "codex-session-namer.sh" "$SRC_DIR/hooks/codex-session-namer.sh" "$HOME/.codex/hooks/codex-session-namer.sh"
   check_file "codex-context-monitor.sh" "$SRC_DIR/hooks/codex-context-monitor.sh" "$HOME/.codex/hooks/codex-context-monitor.sh"
-  check_file "auto-rename SKILL" "$SRC_DIR/skills/codex/auto-rename/SKILL.md" "$HOME/.codex/skills/auto-rename/SKILL.md"
-  check_file "handoff SKILL" "$SRC_DIR/skills/codex/handoff/SKILL.md" "$HOME/.codex/skills/handoff/SKILL.md"
-  check_file "structured-questions SKILL" "$SRC_DIR/skills/codex/structured-questions/SKILL.md" "$HOME/.codex/skills/structured-questions/SKILL.md"
-  diff -q "$SRC_DIR/skills/codex/_shared/codex-session-rename.md" "$HOME/.codex/skills/_shared/codex-session-rename.md" >/dev/null 2>&1 \
+  check_file "auto-rename SKILL" "$SRC_DIR/skills/codex/auto-rename/SKILL.md" "$HOME/.agents/skills/auto-rename/SKILL.md"
+  check_file "handoff SKILL" "$SRC_DIR/skills/codex/handoff/SKILL.md" "$HOME/.agents/skills/handoff/SKILL.md"
+  check_file "structured-questions SKILL" "$SRC_DIR/skills/codex/structured-questions/SKILL.md" "$HOME/.agents/skills/structured-questions/SKILL.md"
+  diff -q "$SRC_DIR/skills/codex/_shared/codex-session-rename.md" "$HOME/.agents/skills/_shared/codex-session-rename.md" >/dev/null 2>&1 \
     && ok "_shared/codex-session-rename.md" || bad "_shared/codex-session-rename.md" "缺檔或內容過期"
+  if [ -e "$HOME/.codex/skills/auto-rename" ] || [ -e "$HOME/.codex/skills/handoff" ] \
+    || [ -e "$HOME/.codex/skills/structured-questions" ] || [ -e "$HOME/.codex/skills/_shared" ]; then
+    bad "無 legacy Codex skill 目錄" "~/.codex/skills 仍有同名舊版，可能重複載入"
+  else
+    ok "無 legacy Codex skill 目錄"
+  fi
   check_registered "註冊 namer PostToolUse" "$HOME/.codex/hooks.json" "codex-session-namer.sh" "PostToolUse"
   check_registered "註冊 namer UserPromptSubmit" "$HOME/.codex/hooks.json" "codex-session-namer.sh" "UserPromptSubmit"
   check_registered "註冊 context-monitor" "$HOME/.codex/hooks.json" "codex-context-monitor.sh" "PostToolUse"
@@ -130,35 +147,126 @@ if [ "$TARGET" != "claude" ]; then
   echo "$SIM_OUT" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['hookSpecificOutput']['hookEventName']=='UserPromptSubmit'" 2>/dev/null \
     && ok "namer 模擬：第一句話觸發命名請求" || bad "namer 模擬" "prompt 事件沒吐出合法命名請求 JSON"
   rm -f "/tmp/codex-session-namer/$$" "/tmp/codex-session-namer/$$.prompts" "/tmp/codex-session-namer/$$.default"
+
+  # context-monitor 模擬：使用當前 session 的 transcript_path 讀取 token_count
+  TMPJ=$(mktemp)
+  TMPMETA=$(mktemp)
+  TMPOUT=$(mktemp)
+  MONITOR_SESSION="verify-context-monitor"
+  MONITOR_KEY=$(STATE_SOURCE="session:$MONITOR_SESSION" python3 -c 'import hashlib, os; print(hashlib.sha256(os.environ["STATE_SOURCE"].encode()).hexdigest()[:24])')
+  MONITOR_PREFIX="/tmp/codex-context-monitor/$MONITOR_KEY"
+  rm -f "$MONITOR_PREFIX.calls" "$MONITOR_PREFIX.handoff" "$MONITOR_PREFIX.token-read-failures"
+  echo '{"payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":25000},"model_context_window":30000}}}' > "$TMPJ"
+  printf '{"session_id":"%s","transcript_path":"%s"}\n' "$MONITOR_SESSION" "$TMPJ" > "$TMPMETA"
+  bash "$HOME/.codex/hooks/codex-context-monitor.sh" < "$TMPMETA" > "$TMPOUT" 2>/dev/null
+  SIM_OUT=$(cat "$TMPOUT")
+  echo "$SIM_OUT" | grep -q "Context 已用" && ok "context-monitor 模擬：當前 session 門檻觸發" || bad "context-monitor 模擬" "當前 transcript 的 token_count 沒觸發警告"
+  rm -f "$TMPJ" "$TMPMETA" "$TMPOUT"
+  rm -f "$MONITOR_PREFIX.calls" "$MONITOR_PREFIX.handoff" "$MONITOR_PREFIX.token-read-failures"
+
+  # fallback 模擬：計數與讀取失敗次數必須按 session_id 隔離
+  FALLBACK_SESSION="verify-context-fallback-a"
+  FALLBACK_KEY=$(STATE_SOURCE="session:$FALLBACK_SESSION" python3 -c 'import hashlib, os; print(hashlib.sha256(os.environ["STATE_SOURCE"].encode()).hexdigest()[:24])')
+  FALLBACK_PREFIX="/tmp/codex-context-monitor/$FALLBACK_KEY"
+  OTHER_SESSION="verify-context-fallback-b"
+  OTHER_KEY=$(STATE_SOURCE="session:$OTHER_SESSION" python3 -c 'import hashlib, os; print(hashlib.sha256(os.environ["STATE_SOURCE"].encode()).hexdigest()[:24])')
+  OTHER_PREFIX="/tmp/codex-context-monitor/$OTHER_KEY"
+  rm -f "$FALLBACK_PREFIX.calls" "$FALLBACK_PREFIX.handoff" "$FALLBACK_PREFIX.token-read-failures"
+  rm -f "$OTHER_PREFIX.calls" "$OTHER_PREFIX.handoff" "$OTHER_PREFIX.token-read-failures"
+  echo 69 > "$FALLBACK_PREFIX.calls"
+  echo 2 > "$FALLBACK_PREFIX.token-read-failures"
+  SIM_OUT=$(printf '{"session_id":"%s"}\n' "$FALLBACK_SESSION" | bash "$HOME/.codex/hooks/codex-context-monitor.sh" 2>/dev/null)
+  echo "$SIM_OUT" | grep -q "工具呼叫數估算：70/100" && ok "context-monitor fallback：同 session 累計" || bad "context-monitor fallback" "同 session 達門檻時沒有觸發"
+  SIM_OUT=$(printf '{"session_id":"%s"}\n' "$OTHER_SESSION" | bash "$HOME/.codex/hooks/codex-context-monitor.sh" 2>/dev/null)
+  OTHER_COUNT=$(cat "$OTHER_PREFIX.calls" 2>/dev/null || echo 0)
+  [ -z "$SIM_OUT" ] && [ "$OTHER_COUNT" -eq 1 ] && ok "context-monitor fallback：跨 session 隔離" || bad "context-monitor fallback" "不同 session 沿用了既有計數"
+  rm -f "$FALLBACK_PREFIX.calls" "$FALLBACK_PREFIX.handoff" "$FALLBACK_PREFIX.token-read-failures"
+  rm -f "$OTHER_PREFIX.calls" "$OTHER_PREFIX.handoff" "$OTHER_PREFIX.token-read-failures"
 fi
 
 say ""
 say "▍4. 編輯器 terminal 設定（VS Code 系才需要）"
-FOUND_EDITOR=""
-for APP in "Cursor" "Antigravity" "Code"; do
+if [ "$CONFIRMED_EDITOR" = "native" ]; then
+  ok "已確認 native／other terminal：不修改 editor settings"
+elif [ -n "$CONFIRMED_EDITOR" ]; then
+  case "$CONFIRMED_EDITOR" in
+    cursor) APP="Cursor" ;;
+    antigravity) APP="Antigravity" ;;
+    vscode) APP="Code" ;;
+  esac
   SETTINGS="$HOME/Library/Application Support/$APP/User/settings.json"
-  [ -f "$SETTINGS" ] || SETTINGS="$HOME/.config/$APP/User/settings.json"   # Linux
-  [ -f "$SETTINGS" ] || continue
-  FOUND_EDITOR=1
+  [ -f "$SETTINGS" ] || SETTINGS="$HOME/.config/$APP/User/settings.json"
   if grep -qs '"terminal.integrated.tabs.title".*sequence' "$SETTINGS"; then
-    ok "${APP}：tabs.title 含 \${sequence}"
+    ok "已確認的 ${APP}：tabs.title 含 \${sequence}"
   else
-    warn "${APP}：tabs.title 未設 \${sequence}" "該編輯器的 terminal tab 不會顯示改名；在 settings.json 加 \"terminal.integrated.tabs.title\": \"\${sequence}\""
+    bad "已確認的 ${APP}：tabs.title 含 \${sequence}" "設定不存在或尚未完成"
   fi
-done
-[ -z "$FOUND_EDITOR" ] && say "  （沒偵測到 VS Code 系編輯器，iTerm/Terminal.app 原生支援，跳過）"
+  for OTHER in "Cursor" "Antigravity" "Code"; do
+    [ "$OTHER" = "$APP" ] && continue
+    OTHER_SETTINGS="$HOME/Library/Application Support/$OTHER/User/settings.json"
+    [ -f "$OTHER_SETTINGS" ] || OTHER_SETTINGS="$HOME/.config/$OTHER/User/settings.json"
+    [ -f "$OTHER_SETTINGS" ] && say "  INFO  未選取的 ${OTHER} 設定檔存在；不納入 PASS/FAIL，也不修改。"
+  done
+else
+  say "  （未提供 --editor；以下只列資訊。正式驗證請傳入學生確認的 editor。）"
+  FOUND_EDITOR=""
+  for APP in "Cursor" "Antigravity" "Code"; do
+    SETTINGS="$HOME/Library/Application Support/$APP/User/settings.json"
+    [ -f "$SETTINGS" ] || SETTINGS="$HOME/.config/$APP/User/settings.json"
+    [ -f "$SETTINGS" ] || continue
+    FOUND_EDITOR=1
+    say "  INFO  ${APP} 設定檔存在；未選取，不納入 PASS/FAIL。"
+  done
+  [ -z "$FOUND_EDITOR" ] && say "  INFO  沒偵測到 VS Code 系設定檔。"
+fi
 
 say ""
 say "════════════════════════════════════════════"
 say " 結果：$PASS PASS / $FAIL FAIL / $WARN WARN"
 say "════════════════════════════════════════════"
 say ""
-say "▍5. 人工 E2E 驗證（自動檢查全過後，引導用戶做這三步）"
-say "  1. 開一個【新的】terminal（舊的還在舊環境，測了不算）"
-say "  2. 跑 claude（或 codex），打一句有任務內容的話，例如「列出這個資料夾的檔案」"
-say "  3. 預期：第一個回合內 terminal tab 變成「{emoji} 任務描述」"
-say "     Codex 額外看：sidebar 的 session 名稱也應同步"
-say "  沒變 → 跑 ./verify.sh --report，把報告開成 GitHub issue（見 TROUBLESHOOTING.md）"
+say "▍5. 人工 E2E 驗證（自動檢查全過後依序完成）"
+say "  每項都使用新的 terminal / session；舊 session 不會重新載入剛安裝的 skill。"
+say ""
+say "  5A. auto-rename"
+if [ "$TARGET" != "codex" ]; then
+  say "    Claude：開新 terminal 執行 claude，輸入「列出這個資料夾的檔案」。"
+  say "    預期：第一個回合內 terminal tab 變成「{emoji} 任務描述」。"
+fi
+if [ "$TARGET" != "claude" ]; then
+  say "    Codex：開新 terminal 執行 codex，輸入同一句任務。"
+  say "    預期：第一個回合內 terminal tab 與 sidebar 都變成任務名稱。"
+fi
+say ""
+say "  5B. handoff（完整測試，只能在下列臨時 repo 進行）"
+say '    測試啟動指令會建立臨時 git repo；測試變數只影響這個 session。'
+if [ "$TARGET" != "codex" ]; then
+  say "    Claude：開新 terminal，貼上："
+  say '      TEST_REPO="$(mktemp -d "${TMPDIR:-/tmp}/jr-skill-e2e.XXXXXX")" && git -C "$TEST_REPO" init -q && printf "# e2e skill test\n" > "$TEST_REPO/README.md" && git -C "$TEST_REPO" add README.md && git -C "$TEST_REPO" config user.name "Skill E2E" && git -C "$TEST_REPO" config user.email "skill-e2e@example.invalid" && git -C "$TEST_REPO" commit -qm init && cd "$TEST_REPO" && CONTEXT_MONITOR_TEST_WINDOW=30000 claude'
+  say "    叫它讀 README 並列出檔案；看到測試模式警告後，輸入「照警告完整寫 handoff」。"
+  say "    預期：docs/handoff 有文件、有新 commit，session 名稱變成 📦 開頭。"
+fi
+if [ "$TARGET" != "claude" ]; then
+  say "    Codex：開新 terminal，貼上："
+  say '      TEST_REPO="$(mktemp -d "${TMPDIR:-/tmp}/jr-skill-e2e.XXXXXX")" && git -C "$TEST_REPO" init -q && printf "# e2e skill test\n" > "$TEST_REPO/README.md" && git -C "$TEST_REPO" add README.md && git -C "$TEST_REPO" config user.name "Skill E2E" && git -C "$TEST_REPO" config user.email "skill-e2e@example.invalid" && git -C "$TEST_REPO" commit -qm init && cd "$TEST_REPO" && CODEX_TEST_MAX_CONTEXT_WINDOW=5000 codex'
+  say "    叫它讀 README 並列出檔案，再下第二個指令「再列一次」；看到警告後要求完整寫 handoff。"
+  say "    預期：docs/handoff 有文件、有新 commit、tab/sidebar 變成 📦 開頭，且警告停止重複。"
+fi
+say '    測完離開 AI session，在原 shell 執行：rm -rf "$TEST_REPO"'
+say ""
+say "  5C. structured-questions"
+if [ "$TARGET" != "codex" ]; then
+  say "    Claude：在新 session 輸入「/structured-questions 我想轉職」。"
+  say "    預期：出現分組選項、推薦項與各選項取捨。"
+fi
+if [ "$TARGET" != "claude" ]; then
+  say '    Codex Default mode：輸入「$structured-questions 我想轉職」。'
+  say "    預期：只顯示切換提示並停止；回覆「不切換」後才列文字選項。"
+  say '    另開新 session，再輸入「$structured-questions 幫我選資料庫」後依提示輸入「/plan 繼續剛才的 structured questions」。'
+  say "    預期：切換後用 request_user_input 顯示互動選單。"
+fi
+say ""
+say "  任一項失敗 → 跑 ./verify.sh --report，依 TROUBLESHOOTING.md 排查或建立 issue。"
 
 if [ -n "$REPORT" ]; then
   {

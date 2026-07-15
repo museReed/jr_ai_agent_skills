@@ -3,8 +3,8 @@ name: structured-questions
 description: >-
   Use when facing multiple options or design decisions that need user input.
   Presents structured choice prompts with grouped questions, recommended tags,
-  and option trade-offs. Works in any mode — uses ask_user_question tool in
-  Plan mode, falls back to formatted text output in other modes.
+  and option trade-offs. In Plan mode it uses request_user_input; in Default
+  mode it pauses for an explicit switch-or-fallback choice.
   Triggers on "ask user", "structured questions", "提問格式".
 user-invocable: true
 ---
@@ -15,31 +15,34 @@ user-invocable: true
 
 遇到多個可行方案時，**必須結構化提問**，不自行決定。
 
-1. 多決策點 → 分組一次問完（最多 2-4 題）
-2. 每題必標 ✨ 推薦選項
-3. 每個選項帶 **標題 + 說明 + 😃/😫**
-4. 選項數 2-4 個
+1. 多決策點 → 分組一次問完（最多 3 題）
+2. 每題必標推薦選項；Plan mode 用 `(Recommended)`，文字版加 `✨`
+3. 每個選項帶 **標題 + 說明 + 優缺點**
+4. 每題 2-3 個選項
 5. 有具體 artifact 可比較時附 code preview
 
 觸發條件：任何存在 ≥ 2 個可行方案的決策點。
 
-## Mode Detection — 根據當前 mode 選擇輸出方式
+## Mode Detection — 先確認 mode，給用戶更好的 UI 體驗
 
-**Step 0: 檢查 `ask_user_question` tool 是否可用。**
+**Step 0: 檢查現在是不是 Plan mode（`request_user_input` tool 是否可用）。**
 
-- **可用**（Plan mode）→ 走 Path A: Tool UI
-- **不可用**（其他 mode）→ 先提示用戶切換，再走 fallback
+- **在 Plan mode（tool 可用）** → 直接走 Path A: Tool UI（互動選單）。
+- **不在 Plan mode（tool 不可用）** → **先問用戶要不要切 Plan mode，停下來等回答**，不要直接掉進文字版。
 
-### 不可用時的處理流程
+### 不在 Plan mode 時的流程
 
-1. **先提示用戶**：輸出以下訊息——
+1. **輸出以下固定提示，然後立即停止**。不得在同一輪先列文字問題：
 
-   > 💡 建議先輸入 `/plan` 切換到 Plan mode，可以獲得互動式選項 UI。
-   > 如果不方便切換，我會用文字格式列出選項，你回覆編號即可。
+   > 你目前不在 Plan mode。若要互動式選單，請輸入 `/plan 繼續剛才的 structured questions`；若不要切換，請回覆『不切換』，我會改用文字選項。
 
-2. **不等用戶切換，直接走 Path B: Text Fallback** 繼續輸出問題。
-   - 如果用戶看到提示後決定切 `/plan`，下一輪自然會走 Path A。
-   - 不要因為等用戶切 mode 而卡住流程。
+2. 依回答走：
+   - 用戶直接輸入 `/plan …`，切換後 `request_user_input` 可用 → 用 Path A 繼續原問題。
+   - 用戶回「要／切換」但尚未輸入指令 → 引導他輸入 `/plan 繼續剛才的 structured questions`，然後停止。
+   - 用戶回「不要／不切換」→ 在同一輪立即用 Path B 列出先前暫存的完整文字問題。
+   - 回覆不明確 → 再次要求明確回答「切換」或「不切換」，然後停止；不得自行 fallback。
+
+3. 切換 mode 前要保留原決策點；進入 Plan mode 或拒絕切換後，繼續同一組問題，不要重新分析成另一組。
 
 ## When to Use
 
@@ -72,23 +75,27 @@ user-invocable: true
 
 ---
 
-#### Path A: Tool UI（Plan mode — `ask_user_question` 可用時）
+#### Path A: Tool UI（Plan mode — `request_user_input` 可用時）
 
 每個決策點對應 `questions` array 中的一個 item：
 
 ```json
 {
-  "question": "完整問句，結尾帶問號",
-  "header": "≤12字標籤",
-  "multiSelect": false,
-  "options": [
+  "questions": [
     {
-      "label": "✨ 選項名稱 (Recommended)",
-      "description": "一句說明\n😃：...\n😫：..."
-    },
-    {
-      "label": "選項名稱",
-      "description": "一句說明\n😃：...\n😫：..."
+      "id": "decision_name",
+      "question": "完整問句，結尾帶問號",
+      "header": "≤12字標籤",
+      "options": [
+        {
+          "label": "選項名稱 (Recommended)",
+          "description": "一句話壓縮說明取捨；優點：...；缺點：...。"
+        },
+        {
+          "label": "選項名稱",
+          "description": "一句話壓縮說明取捨；優點：...；缺點：...。"
+        }
+      ]
     }
   ]
 }
@@ -96,13 +103,15 @@ user-invocable: true
 
 規則：
 - `header` ≤ 12 字元，中文優先
-- 推薦項的 label 前加 `✨`，尾端加 ` (Recommended)`，放第一個
-- 選項數 2-4 個，不含 Other（系統自動加）
-- 有具體 artifact 時用 `markdown` 欄位附 code preview
+- `id` 使用穩定的 `snake_case`
+- 每次最多 3 題，每題 2-3 個互斥選項
+- 推薦項放第一個，label 尾端加 ` (Recommended)`
+- `description` 只能一行，用一句話壓縮說明、優點與缺點
+- 不要自行加入 Other（系統會提供 free-form Other）
 
 ---
 
-#### Path B: Text Fallback（其他 mode — `ask_user_question` 不可用時）
+#### Path B: Text Fallback（Default mode — 用戶明確拒絕切換後）
 
 用以下純文字格式輸出，然後**停下來等用戶回覆**：
 
@@ -134,12 +143,21 @@ user-invocable: true
 請回覆各題的選項編號（例如 Q1: A, Q2: B），或直接說明你的想法。
 
 規則：
+- 每次最多 3 題，每題列 2-3 個實質選項
 - 推薦項前加 `✨` 並標 `(Recommended)`，放第一個
 - 最後一個選項固定是 `Other（請說明）`
 - 結尾必須加回覆引導句
 - 有具體 artifact 時在選項下方附 fenced code block
 
-### Step 3: 選項描述格式（兩個 Path 共用）
+### Step 3: 選項描述格式
+
+Path A 的 `description` 必須是一行：
+
+```
+{一句話說明}；優點：{pros}；缺點：{cons}。
+```
+
+Path B 的文字選項維持三行格式：
 
 每個選項的說明遵循三行格式：
 
@@ -170,5 +188,7 @@ user-invocable: true
 | 選項只有標題沒有說明 | 用戶缺乏判斷依據 | 必帶說明 + 😃/😫 |
 | 沒標推薦選項 | 用戶要花時間自己分析優劣 | 每題必標 ✨ Recommended |
 | 😃/😫 跟說明擠同一行 | 不好掃讀 | 😃 和 😫 各自獨立一行 |
-| 非 Plan mode 硬呼叫 ask_user_question | 工具不可用，報錯中斷 | 偵測 mode，走 Text Fallback |
+| 非 Plan mode 硬呼叫 request_user_input | 工具不可用，報錯中斷 | 輸出固定切換提示並停止 |
+| 非 Plan mode 沒問就直接掉文字版 | 用戶錯過更好的互動選單 UI | 先等用戶明確拒絕切換，再輸出文字問題 |
+| 用戶含糊回答時自行 fallback | 未取得是否切換的明確選擇 | 再問「切換」或「不切換」並停止 |
 | 只有一種做法也硬問 | 浪費用戶時間 | 直接做，不為問而問 |

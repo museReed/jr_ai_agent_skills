@@ -1,6 +1,6 @@
 # Structured Questions Skill — Installation Guide
 
-Read this document, then execute the installation steps for your tool (Section A or Section B). Do not ask for confirmation — just do it. **Installation is NOT complete until you have walked the user through the "Verification" section.**
+For a fresh install, read [auto-rename-install.md](./auto-rename-install.md) and follow its single AI-guided flow. It detects Claude/Codex and the current terminal/IDE, then installs auto-rename, handoff, and structured-questions together. The commands below are direct re-install references, not separate skill installers. **Installation is NOT complete until the user opens a new session and completes all three E2E checks.**
 
 See [structured-questions-skill.md](./structured-questions-skill.md) for feature overview.
 
@@ -11,32 +11,32 @@ See [structured-questions-skill.md](./structured-questions-skill.md) for feature
 
 ## What this skill does
 
-When a decision has ≥ 2 viable options, the AI does not decide on its own — it lays the options out in a structured format for you to pick from, each with a ✨ recommendation, 😃 pros, and 😫 cons. Claude Code uses the interactive `AskUserQuestion` picker; Codex uses the `ask_user_question` interactive UI in Plan mode and falls back to plain-text options in other modes.
+When a decision has ≥ 2 viable options, the AI does not decide on its own — it lays out structured choices with a recommendation and trade-offs. Claude Code uses the interactive `AskUserQuestion` picker; Codex uses `request_user_input` in Plan mode. In Default mode, it pauses to ask whether to switch and only falls back to plain-text options after an explicit refusal.
 
 > This is a pure skill (a single `SKILL.md`) — no hooks, no alias, no editor settings. `install.sh` copies it into place alongside auto-rename and handoff.
 
-## Section A: Claude Code Installation
+## Claude Code direct re-install reference
 
 All skills live in this repo's `installer/`; one command installs everything (including structured-questions):
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh claude
+./install.sh claude --editor=<confirmed-editor>
 ```
 
 Installs to `~/.claude/skills/structured-questions/SKILL.md`. Triggers: automatically (on any multi-option decision) or manually via `/structured-questions`.
 
-## Section B: Codex CLI Installation
+## Codex CLI direct re-install reference
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh codex
+./install.sh codex --editor=<confirmed-editor>
 ```
 
-Installs to `~/.codex/skills/structured-questions/SKILL.md`. Triggers: automatically or manually via `$structured-questions`. **Plan mode uses the interactive UI; other modes use the plain-text option format.**
+Installs to `~/.agents/skills/structured-questions/SKILL.md`. Triggers: automatically or manually via `$structured-questions`. **Plan mode uses `request_user_input`; Default mode waits for a switch decision and only uses plain-text options after the user declines.**
 
-> Using both tools → `./install.sh` (no argument).
-> The installer is idempotent: safe to re-run; it automatically backs up any file it replaces (`*.bak.{timestamp}`).
+> Using both tools → `./install.sh --editor=<confirmed-editor>`; replace the value with `cursor`, `antigravity`, `vscode`, or `native`.
+> The installer is idempotent and safe to re-run. Codex skill backups go to `~/.agents/skill-backups/{timestamp}/`; other replaced files use `*.bak.{timestamp}`.
 
 ---
 
@@ -71,10 +71,13 @@ After installing, run the tests below to confirm the skill works. After each tes
 ### Test 5: Codex-specific — Plan mode vs non-Plan mode
 
 > **5a — Plan mode**: enter Plan mode (`/plan`), then say "help me pick a database"
-> **Expected**: the interactive option UI appears (`ask_user_question` tool)
+> **Expected**: the interactive option UI appears (`request_user_input` tool)
 >
-> **5b — non-Plan mode**: in default mode, say "help me pick a database"
-> **Expected**: a 💡 hint suggesting `/plan` appears first, then options are listed in the `Q1: A/B/C` plain-text format
+> **5b — Default mode**: in Default mode, say "help me pick a database"
+> **Expected 1**: only the switch prompt appears, then the AI stops; no database options are shown yet
+>
+> Next, reply "don't switch"
+> **Expected 2**: the AI resumes the original question in the same turn using the `Q1: A/B/C` plain-text format
 
 ### Reading the results
 
@@ -84,4 +87,4 @@ After installing, run the tests below to confirm the skill works. After each tes
 | Tests 1-2 don't trigger | Check that the SKILL.md `description` contains the trigger keywords |
 | Test 3 doesn't trigger | Check the frontmatter `name` is spelled correctly (`structured-questions`) |
 | Test 4 mis-triggers | Check the SKILL.md "When NOT to Use" section is clear |
-| Test 5b has no fallback | Check the Mode Detection section in the Codex SKILL.md |
+| Test 5b does not pause first, or has no fallback after refusal | Check the Mode Detection section in the Codex SKILL.md |

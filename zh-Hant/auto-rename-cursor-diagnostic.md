@@ -29,7 +29,7 @@
 
 **中文編碼**:經 tty 裝置直寫，**中文/emoji 顯示正常**（2.1.197 實測「🔧中文測試」正確）。先前手動在 fresh terminal `printf` 出現的亂碼（`測試`→`æ¸¬è©¦`）是該路徑的 locale 差異，非 tty 直寫路徑的問題。
 
-**驗證**:關 DISABLE + 重開 Claude Code 後，做 ≥5 次 tool call 或打 `/auto-rename` → tab 穩定變成 emoji 中文名，不再彈回。實作見 [auto-rename-install.md](./auto-rename-install.md) Section A + C。
+**驗證**:關 DISABLE + 重開 Claude Code 後，做 ≥5 次 tool call 或打 `/auto-rename` → tab 穩定變成 emoji 中文名，不再彈回。實作見 [auto-rename-install.md](./auto-rename-install.md) 的「單一 AI 引導式安裝流程」與「機制細節」。
 
 > 以下為原始排查過程與跨機器數據，保留供追溯。
 

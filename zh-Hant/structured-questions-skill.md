@@ -378,16 +378,10 @@ Q1: 從哪個方向開始排查？
 
 ## 安裝
 
-一句指令，讓 AI 幫你裝：
+同一段 prompt 可貼給 Claude Code 或 Codex；AI 會偵測工具、確認 terminal／IDE，並一次安裝三個核心 skills：
 
-**Claude Code：**
 ```
-Read docs/guides/structured-questions-install.md and execute Section A
-```
-
-**Codex CLI：**
-```
-Read docs/guides/structured-questions-install.md and execute Section B
+Read jr_ai_agent_skills/zh-Hant/auto-rename-install.md and guide me through its single installation flow.
 ```
 
 詳細步驟見 [structured-questions-install.md](./structured-questions-install.md)。
@@ -398,7 +392,7 @@ Read docs/guides/structured-questions-install.md and execute Section B
 
 | | Claude Code | Codex CLI |
 |---|---|---|
-| 互動 UI | 隨時可用（`AskUserQuestion` 工具） | 僅 Plan mode 可用 |
-| 非 Plan mode | 不適用 | 自動切換為純文字選項格式 |
-| 安裝路徑 | `.claude/skills/structured-questions/SKILL.md` | `.codex/skills/structured-questions/SKILL.md` |
+| 互動 UI | 隨時可用（`AskUserQuestion` 工具） | Plan mode 使用 `request_user_input` |
+| Default mode | 不適用 | 先停下詢問是否切換；明確拒絕後才用純文字選項 |
+| 安裝路徑 | `.claude/skills/structured-questions/SKILL.md` | `.agents/skills/structured-questions/SKILL.md` |
 | 觸發方式 | `/structured-questions` 或自動觸發 | `$structured-questions` 或自動觸發 |

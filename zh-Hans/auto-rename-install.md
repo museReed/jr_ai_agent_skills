@@ -1,6 +1,6 @@
 # Auto-Rename Skill — 安装指南
 
-Read this document, then execute the installation steps for your tool (Section A or Section B). Do not ask for confirmation — just do it. Execute every step sequentially, do not skip any step. **Installation is NOT complete until you have walked the user through the "E2E 验证" section.**
+Read this document and guide the user through the single installation flow below. Detect first, ask only when a real choice remains, and execute every step sequentially. **Installation is NOT complete until the user has opened a new session and completed all three skills' E2E checks.**
 
 功能介绍见 [auto-rename-skill.md](./auto-rename-skill.md)。
 
@@ -24,80 +24,69 @@ AI 自动帮每个 session 取名字并同步到 terminal tab（和 Codex sideba
 
 架构一句话：`claude`/`codex` 经 wrapper 启动 → wrapper 开后台 watcher 盯一个 sync 文件 → hook 在命名时写 sync 文件 → watcher 把名字写进 terminal tab（OSC）。Codex 侧模型先写 `/tmp` relay 文件、hook 代写 SQLite（sidebar）+ sync 文件（sandbox 限制）。
 
-## Section A: Claude Code 安装
+## 单一 AI 引导式安装流程
 
-所有 script 都在本 repo 的 `installer/`，一个指令装完（hooks + skills + 注册）：
-
-```bash
-cd jr_ai_agent_skills/installer
-./install.sh claude
-```
-
-然后把 alias 写进 shell rc（**AI 直接执行写入，不要只打印给用户看**；幂等，已存在就不重复加）：
-
-```bash
-RC="$HOME/.zshrc"; case "$SHELL" in *bash*) RC="$HOME/.bashrc";; esac
-grep -q "alias claude=.*myclaude" "$RC" 2>/dev/null \
-  || echo "alias claude='\$HOME/.local/bin/myclaude'" >> "$RC"
-echo "已写入 $RC — 请重开 terminal 或 source 它，alias 没生效＝功能没生效"
-```
-
-装完跳到「编辑器设置」。
-
-## Section B: Codex CLI 安装
+### 1. 先检测，不修改任何设置
 
 ```bash
 cd jr_ai_agent_skills/installer
-./install.sh codex
+python3 detect-environment.py
 ```
 
-alias（**AI 直接执行写入**，幂等）：
+读取 JSON 中的 `cli`、`recommended_install_target`、`terminal` 与 `editors`。父进程是强证据，`TERM_PROGRAM` 次之；设置文件存在只代表该 IDE 安装或用过，不能代表当前 terminal。
 
-```bash
-RC="$HOME/.zshrc"; case "$SHELL" in *bash*) RC="$HOME/.bashrc";; esac
-grep -q "alias codex=.*mycodex" "$RC" 2>/dev/null \
-  || echo "alias codex='\$HOME/.local/bin/mycodex'" >> "$RC"
-echo "已写入 $RC — 请重开 terminal 或 source 它"
-```
+### 2. 决定安装目标
 
-> 两个工具都用 → `./install.sh`（不带参数），两个 alias 都加。
-> installer 是幂等的：重跑安全，会自动备份被取代的文件（`*.bak.{timestamp}`）。
-
-## 编辑器设置（VS Code 系必做，iTerm / Terminal.app 跳过）
-
-Cursor、Antigravity、VS Code 的 terminal tab **默认不显示** OSC 标题，必须在该编辑器的
-`settings.json` 加 `"terminal.integrated.tabs.title": "${sequence}"`。
-
-**AI 直接执行（不要叫用户走 Cmd+Shift+P）**：判断用户用哪个编辑器（存在哪个路径就设哪个），
-用下面的 python 把 key **merge 进去（保留既有设置）**，文件不存在就建。macOS 路径：
-
-| 编辑器 | settings.json 路径 |
+| 检测结果 | AI 行为 |
 |---|---|
-| Cursor | `~/Library/Application Support/Cursor/User/settings.json` |
-| Antigravity | `~/Library/Application Support/Antigravity/User/settings.json` |
-| VS Code | `~/Library/Application Support/Code/User/settings.json` |
+| 只有 Claude CLI | 告知“检测到 Claude Code，将安装 Claude 版本”，不提问 |
+| 只有 Codex CLI | 告知“检测到 Codex CLI，将安装 Codex 版本”，不提问 |
+| 两者都有 | 用结构化问题询问“两者（Recommended）／Claude／Codex” |
+| 两者都没有 | 停止；请用户先安装至少一个 CLI |
+
+安装前不能假设 `structured-questions` skill 已存在，因此直接遵守以下内置流程：
+
+- Claude Code：使用 `AskUserQuestion` 交互菜单。
+- Codex Plan mode：使用 `request_user_input`；每次最多 3 题、每题 2–3 个选项，推荐项置首并加 `(Recommended)`，每个 description 用一行说明取舍。
+- Codex Default mode：输出“你目前不在 Plan mode。若要互动式选单，请输入 `/plan 繼續安裝 jr_ai_agent_skills`；若不要切换，请回复‘不切换’，我会改用文字选项。”然后停止，不先列选项。
+- 用户回复“要／切换”时，引导输入 `/plan 繼續安裝 jr_ai_agent_skills` 后停止；直接输入该指令并切换成功后，用 `request_user_input` 继续。
+- 只有明确回复“不要／不切换”才在同一轮列出完整文字选项；模糊回答必须再问“切换”或“不切换”，不得自行 fallback。
+
+### 3. 一律确认当前 terminal／IDE
+
+检测结果只是推荐，AI 必须用同一套结构化问题让学生确认。明确检测时先问“使用检测结果（Recommended）／其他 VS Code 系 IDE／Terminal、iTerm 或其他”；选其他 VS Code 系 IDE 时，再问“Cursor／Antigravity／VS Code”。检测不明时先问“VS Code 系 IDE／Terminal、iTerm 或其他”，选前者后再问是哪一个 IDE。
+
+只设置学生最后确认的 IDE：
 
 ```bash
-python3 - "<上表对应路径>" <<'PY'
-import json, os, sys
-p = os.path.expanduser(sys.argv[1])
-os.makedirs(os.path.dirname(p), exist_ok=True)
-cfg = {}
-if os.path.exists(p):
-    with open(p) as f:
-        cfg = json.load(f)          # 若含 // 注释会 raise → 走下方 fallback
-cfg["terminal.integrated.tabs.title"] = "${sequence}"
-with open(p, "w") as f:
-    json.dump(cfg, f, indent=2, ensure_ascii=False)
-print("set terminal.integrated.tabs.title in", p)
-PY
+python3 configure-editor.py cursor       # 或 antigravity / vscode
+python3 configure-editor.py native       # Terminal.app、iTerm 或其他：明确不修改设置
 ```
 
-- **只对存档后新开的 terminal 生效** → 设完请用户新开一个 terminal
-- 用哪个编辑器就设哪个（各有各的 settings.json）
-- Fallback：上述路径都找不到、或 python 因 JSONC 注释报错 → 请用户
-  Cmd+Shift+P → "Open User Settings (JSON)" 手动加那一行。**报错时原文件不会被动到**
-  （json.load 在读取阶段就失败、还没写入），放心走手动
+若已有 `settings.json` 含 JSONC 注释而解析失败，原文件不会被写入；请学生在已确认的那个 IDE 内用 "Open User Settings (JSON)" 手动加入 `"terminal.integrated.tabs.title": "${sequence}"`。不可因为其他 IDE 的设置文件存在而修改它。
+
+### 4. 执行非交互 installer 并写 alias
+
+```bash
+./install.sh claude --editor=<confirmed-editor>   # 只安装 Claude Code
+./install.sh codex --editor=<confirmed-editor>    # 只安装 Codex CLI
+./install.sh --editor=<confirmed-editor>          # 两者都安装
+```
+
+一个指令会安装该目标的 auto-rename、handoff、structured-questions 三个 skills 与相关 hooks，无需逐个 skill 安装。AI 接着把对应 alias 写进 shell rc（幂等，两者都装就执行两段）：
+
+```bash
+RC="$HOME/.zshrc"; case "$SHELL" in *bash*) RC="$HOME/.bashrc";; esac
+TARGET="<claude|codex|all>"
+case "$TARGET" in claude|all) grep -q "alias claude=.*myclaude" "$RC" 2>/dev/null || echo "alias claude='\$HOME/.local/bin/myclaude'" >> "$RC";; esac
+case "$TARGET" in codex|all) grep -q "alias codex=.*mycodex" "$RC" 2>/dev/null || echo "alias codex='\$HOME/.local/bin/mycodex'" >> "$RC";; esac
+```
+
+只写入实际安装目标的 alias。installer 可安全重跑；Codex skill 备份放在 `~/.agents/skill-backups/{timestamp}/`，其他文件使用 `*.bak.{timestamp}`。
+
+### 5. 必须停下并要求新环境
+
+installer 完成后，AI 必须明确要求学生**打开新的 terminal，再启动新的 AI session**，并把 installer 输出的 target-aware continuation prompt 贴进新 session，然后停止当前流程。旧 session 不会重新加载刚安装的 skills，不得在旧 session 宣称安装或 E2E 已完成。
 
 ## E2E 验证（AI agent 必须主动引导用户完成，不可跳过）
 
@@ -107,7 +96,8 @@ PY
 
 ```bash
 cd jr_ai_agent_skills/installer
-./verify.sh          # 或 ./verify.sh claude / ./verify.sh codex
+./verify.sh claude --editor=<confirmed-editor>  # 替换为 cursor / antigravity / vscode / native
+# 或改用 codex；两者都装时省略 claude/codex
 ```
 
 全部 PASS 才往下；有 FAIL 先照信息修（改完重跑 `install.sh` 再 verify）。
@@ -146,9 +136,9 @@ cd jr_ai_agent_skills/installer
 | `session-auto-namer.sh` | `~/.claude/hooks/` | UserPromptSubmit（第一句话命名）+ PostToolUse（#5 重评、每 10 次兜底） |
 | `codex-session-namer.sh` | `~/.codex/hooks/` | 同上 + 消化 relay 文件、代写 SQLite |
 | relay 文件（Codex） | `/tmp/codex-session-namer/{pid}.pending` | 模型在 sandbox 里唯一能写的交棒点 |
-| skill | `~/.claude/skills/auto-rename/`、`~/.codex/skills/auto-rename/` | 手动 `/auto-rename` 时的规则 |
+| skill | `~/.claude/skills/auto-rename/`、`~/.agents/skills/auto-rename/` | 手动 `/auto-rename` 时的规则 |
 
 ## 迁移到其他电脑
 
-新电脑上 clone 本 repo → 跑同样的 `install.sh` + alias + 编辑器设置 + `verify.sh` 即可，
+新电脑上 clone 本 repo → 让 AI 跑检测与确认 → `install.sh` + alias + 已确认的编辑器设置 + `verify.sh` 即可，
 不需要从旧电脑复制任何文件。

@@ -1,0 +1,166 @@
+<!-- 高亮版即時編輯器：左邊逐字打 code + 語法高亮（用昨天 terminal 的 --term-* 色），
+     右邊即時渲染。CSS 打字時只在「規則打完（}）」才刷新右邊；HTML 標籤逐字刷新。 -->
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Live Editor — 語法高亮版</title>
+<style>
+  /* 終端機主題色（與昨天 terminal_type.html 一致） */
+  :root{
+    --term-bg:#1F1B16;--term-bg-2:#2A241D;--term-ink:#F0ECE4;--term-ink-dim:#B3A99B;
+    --term-prompt:#E8A06A;--term-ok:#30CECE;--term-err:#E89080;--term-folder:#7FB8E0;
+    --danger:#E85B4A;--warn:#D4A843;--ok:#30CECE;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{display:grid;grid-template-columns:1fr 1fr;background:#12100e}
+  .term{display:flex;flex-direction:column;height:100vh;background:var(--term-bg)}
+  .chrome{background:var(--term-bg-2);padding:11px 14px;display:flex;gap:7px;align-items:center}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .chrome .title{margin-left:10px;color:var(--term-ink-dim);font:600 12px/1 ui-monospace,monospace;letter-spacing:.04em}
+  #code{flex:1;overflow:auto;padding:18px 20px;white-space:pre-wrap;word-break:break-word;
+    font:13px/1.75 "JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;color:var(--term-ink);tab-size:2}
+  /* 語法高亮 —— HTML 與 CSS 共用同一套終端機色 */
+  .tg{color:var(--term-prompt)}    /* HTML 標籤名 / CSS 選擇器 = 橘 */
+  .at{color:var(--term-folder)}    /* HTML 屬性 / CSS 屬性 = 藍 */
+  .st{color:var(--term-ok)}        /* 字串 / CSS 值 = 青 */
+  .tx{color:var(--term-ink)}       /* 文字內容 = 米白 */
+  .pt{color:var(--term-ink-dim)}   /* 標點 < > = { } : ; = 灰 */
+  .tc{color:var(--term-ink-dim);font-style:italic}  /* 註解 */
+  .car{display:inline-block;width:8px;height:1.05em;vertical-align:text-bottom;background:var(--term-prompt);
+    animation:blink 1s steps(1) infinite;margin-left:1px}
+  @keyframes blink{50%{opacity:0}}
+  .right{display:flex;flex-direction:column;height:100vh;border-left:3px solid var(--term-prompt)}
+  .bar{padding:11px 16px;background:var(--term-prompt);color:var(--term-bg);
+    font:700 12px/1.2 "Noto Sans TC",sans-serif;letter-spacing:.08em;display:flex;justify-content:space-between}
+  .bar .mode{opacity:.85}
+  iframe{flex:1;border:0;width:100%;background:#F0ECE4}
+</style>
+</head>
+<body>
+  <div class="term">
+    <div class="chrome">
+      <span class="dot" style="background:var(--danger)"></span>
+      <span class="dot" style="background:var(--warn)"></span>
+      <span class="dot" style="background:var(--ok)"></span>
+      <span class="title">~/live · index.html</span>
+    </div>
+    <div id="code"></div>
+  </div>
+  <div class="right">
+    <div class="bar"><span>▸ 即時預覽 · LIVE PREVIEW</span><span class="mode" id="mode"></span></div>
+    <iframe id="preview"></iframe>
+  </div>
+
+<script>
+  const codeEl = document.getElementById('code');
+  const preview = document.getElementById('preview');
+  const modeEl = document.getElementById('mode');
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // --- HTML 標籤 tokenizer（容忍未打完，逐字打用）---
+  function tokenizeTag(tag, push){
+    let i=0, n=tag.length;
+    const lead=(/^<\/?/.exec(tag)||['<'])[0];
+    push('pt', lead); i=lead.length;
+    const nm=/^[\w-]+/.exec(tag.slice(i));
+    if(nm){ push('tg', nm[0]); i+=nm[0].length; }
+    while(i<n){
+      const s=tag.slice(i);
+      const ws=/^\s+/.exec(s);
+      if(ws){ push('pt', ws[0]); i+=ws[0].length; continue; }
+      if(s[0]==='>'||s.startsWith('/>')){ const p=s.startsWith('/>')?'/>':'>'; push('pt',p); i+=p.length; continue; }
+      const at=/^[\w-]+/.exec(s);
+      if(at){
+        push('at', at[0]); i+=at[0].length;
+        const eq=/^\s*=\s*/.exec(tag.slice(i));
+        if(eq){
+          push('pt', eq[0]); i+=eq[0].length;
+          const str=/^"[^"]*"?|^'[^']*'?/.exec(tag.slice(i));
+          if(str){ push('st', str[0]); i+=str[0].length; }
+        }
+        continue;
+      }
+      push('pt', s[0]); i+=1;
+    }
+  }
+
+  // --- CSS tokenizer（新增：容忍未打完，選擇器/屬性/值分色）---
+  function tokenizeCSS(css, push){
+    let i=0, n=css.length, inBlock=false;
+    while(i<n){
+      const s=css.slice(i);
+      let m=/^\/\*[\s\S]*?(\*\/|$)/.exec(s);   // 註解
+      if(m){ push('tc', m[0]); i+=m[0].length; continue; }
+      m=/^\s+/.exec(s);
+      if(m){ push('pt', m[0]); i+=m[0].length; continue; }
+      if(!inBlock){
+        if(s[0]==='{'){ push('pt','{'); i++; inBlock=true; continue; }
+        m=/^[^{\s][^{]*/.exec(s);              // 選擇器（到 { 為止）
+        if(m){ push('tg', m[0]); i+=m[0].length; continue; }
+        push('pt', s[0]); i++;
+      } else {
+        if(s[0]==='}'){ push('pt','}'); i++; inBlock=false; continue; }
+        m=/^[\w-]+/.exec(s);                   // 屬性名
+        if(m){ push('at', m[0]); i+=m[0].length; continue; }
+        if(s[0]===':'){
+          push('pt',':'); i++;
+          const v=/^[^;}]*/.exec(css.slice(i));// 值到 ; 或 } 為止
+          if(v && v[0]){ push('st', v[0]); i+=v[0].length; }
+          continue;
+        }
+        if(s[0]===';'){ push('pt',';'); i++; continue; }
+        push('pt', s[0]); i++;
+      }
+    }
+  }
+
+  // 頂層 walker：HTML 區走 HTML tokenizer；遇 <style> 內容切 CSS tokenizer
+  function highlight(src){
+    const toks=[];
+    const push=(c,t)=>{ if(t) toks.push('<span class="'+c+'">'+esc(t)+'</span>'); };
+    let i=0, n=src.length;
+    while(i<n){
+      if(src.startsWith('<!--',i)){ let e=src.indexOf('-->',i); e=e<0?n:e+3; push('tc',src.slice(i,e)); i=e; continue; }
+      if(src.startsWith('<style',i)){
+        let e=src.indexOf('>',i); e=e<0?n:e+1; tokenizeTag(src.slice(i,e),push); i=e;
+        let c=src.indexOf('</style>',i); const end=c<0?n:c;
+        tokenizeCSS(src.slice(i,end),push); i=end; continue;
+      }
+      if(src[i]==='<'){ let e=src.indexOf('>',i); e=e<0?n:e+1; tokenizeTag(src.slice(i,e),push); i=e; continue; }
+      let e=src.indexOf('<',i); e=e<0?n:e; push('tx',src.slice(i,e)); i=e;
+    }
+    return toks.join('');
+  }
+
+  // 判斷此刻是否在 <style> 內、且 CSS 規則尚未打完 → 尚未打完就別刷新右邊
+  function inUnfinishedCSS(raw){
+    const openStyle=raw.lastIndexOf('<style');
+    const closeStyle=raw.lastIndexOf('</style>');
+    const gt=openStyle>=0 ? raw.indexOf('>',openStyle) : -1;
+    const insideStyle = openStyle>closeStyle && gt!==-1;
+    if(!insideStyle) return false;             // HTML 區 → 逐字刷新
+    const css=raw.slice(gt+1);
+    let bal=0; for(const ch of css){ if(ch==='{')bal++; else if(ch==='}')bal--; }
+    const trimmed=css.replace(/\s+$/,'');
+    // 只有「括號平衡 且 剛好收在 }」才算一條規則完成、可安全套用
+    const ruleDone = bal===0 && (trimmed==='' ? false : trimmed.endsWith('}'));
+    return !ruleDone;                          // 未完成 → true（先不刷新）
+  }
+
+  window.T = {
+    full:'',
+    load(full){ this.full=full; this.to(0); },
+    to(k){
+      const raw=this.full.slice(0,k);
+      codeEl.innerHTML=highlight(raw)+'<span class="car"></span>';   // 左邊一定逐字上色
+      codeEl.scrollTop=codeEl.scrollHeight;
+      if(inUnfinishedCSS(raw)){ modeEl.textContent='CSS 撰寫中…'; return; } // 右邊 hold
+      modeEl.textContent='';
+      preview.srcdoc=raw;                                            // 安全點才刷新右邊
+    }
+  };
+</script>
+</body>
+</html>
