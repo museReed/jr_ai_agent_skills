@@ -9,7 +9,7 @@
 #   - Require 3 consecutive token_count read failures to ignore transient gaps
 #   - Repeat every 10 calls after the fallback threshold if not yet handed off
 # Temporary small-context test mode: launch as
-#   CODEX_TEST_MAX_CONTEXT_WINDOW=20000 codex
+#   CODEX_TEST_MAX_CONTEXT_WINDOW=5000 codex
 # to test handoff triggering. Unset = normal operation.
 
 COUNTER_DIR="/tmp/codex-context-monitor"

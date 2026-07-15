@@ -142,7 +142,31 @@ echo "(~/.zshrc or ~/.bashrc) for you. If it didn't, add them manually as a fall
 echo
 echo "Then restart your terminal. Tab titles auto-update right after your first message."
 echo
-echo "Next: run ./verify.sh (from this directory) to check the install end-to-end."
+echo "安裝後 smoke tests（請在新的 terminal / session 執行）："
+if [ "$TARGET" = "claude" ]; then
+  echo "  1. auto-rename：送出第一個任務，確認 terminal tab 變成「{emoji} 任務描述」。"
+elif [ "$TARGET" = "codex" ]; then
+  echo "  1. auto-rename：送出第一個任務，確認 terminal tab 與 Codex sidebar 都變成任務名稱。"
+else
+  echo "  1. auto-rename：分別在 Claude/Codex 送出第一個任務，確認 terminal tab；Codex 再確認 sidebar。"
+fi
+echo "  2. handoff：用 verify 提供的臨時 repo + 小 context window 完整執行，確認 handoff 文件、commit 與 📦 改名。"
+if [ "$TARGET" = "claude" ]; then
+  echo "  3. structured-questions（Claude）：輸入 /structured-questions 我想轉職，確認出現結構化選項。"
+elif [ "$TARGET" = "codex" ]; then
+  echo "  3. structured-questions（Codex）：在 Default mode 輸入 \$structured-questions 我想轉職，確認先停下詢問是否切換。"
+else
+  echo "  3a. structured-questions（Claude）：輸入 /structured-questions 我想轉職，確認出現結構化選項。"
+  echo "  3b. structured-questions（Codex）：在 Default mode 輸入 \$structured-questions 我想轉職，確認先停下詢問是否切換。"
+fi
+echo
+if [ "$TARGET" = "claude" ]; then
+  echo "Next: run ./verify.sh claude for the full guided E2E."
+elif [ "$TARGET" = "codex" ]; then
+  echo "Next: run ./verify.sh codex for the full guided E2E."
+else
+  echo "Next: run ./verify.sh for the full guided E2E."
+fi
 echo
 echo "選配：一條龍 demo（frontend-design / skill-creator / Playwright，官方第三方 skill）——"
 echo "  ./install-external-skills.sh        # 需網路 + Node；Claude 與 Codex 都裝"

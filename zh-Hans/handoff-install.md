@@ -62,21 +62,27 @@ cd jr_ai_agent_skills/installer
 
 verify 会模拟 context-monitor 触发（假 transcript + 缩小窗口），全 PASS 才往下。
 
-### 第 2 步：真实触发测试（引导用户做）
+### 第 2 步：完整 handoff 测试（引导用户做）
 
-用「缩小窗口」让警告提早出现，不用真的聊到 70%：
+handoff 会建立文档与 commit，必须在临时 repo 测试。请用户开**新 terminal**，先贴：
 
-1. 请用户开**新 terminal**，在一个 git repo 里启动测试 session：
+```bash
+TEST_REPO="$(mktemp -d "${TMPDIR:-/tmp}/jr-skill-e2e.XXXXXX")" && \
+git -C "$TEST_REPO" init -q && printf '# e2e skill test\n' > "$TEST_REPO/README.md" && \
+git -C "$TEST_REPO" add README.md && \
+git -C "$TEST_REPO" config user.name 'Skill E2E' && \
+git -C "$TEST_REPO" config user.email 'skill-e2e@example.invalid' && \
+git -C "$TEST_REPO" commit -qm init && \
+cd "$TEST_REPO"
+```
+
+1. 启动测试 session：
    - Claude Code：`CONTEXT_MONITOR_TEST_WINDOW=30000 claude`
-   - Codex：`CODEX_TEST_MAX_CONTEXT_WINDOW=20000 codex`
-2. 叫它做 1-2 件会动手的事（例如「列出这个文件夹的文件」），做完**再下第二个指令**（例如「再列一次」）
-3. 预期：**第二个指令的回合起**，AI 开始说「⚠️ Context 已用 …（測試模式）请写交接文档」——**看到警告＝hook 验证成功**，可以直接关掉，不用真的写完 handoff
-4. （可选）让它写完：检查 `docs/handoff/` 出现文档、有 commit、session 改名成 `📦 …`
-5. 提醒用户：测试 session 关掉即可，正常 session 不设环境变量、行为完全不变
-
-### 第 3 步：手动 handoff 验证（可选）
-
-任何正常 session 里打「写 handoff」→ 应产出文档 + commit + 📦 改名 + 汇报单行起始 prompt。
+   - Codex：`CODEX_TEST_MAX_CONTEXT_WINDOW=5000 codex`
+2. 叫它读 README 并列出文件；Codex 再下第二个指令「再列一次」。
+3. 看到测试模式 context 警告后，要求「照警告完整写 handoff，全部步骤做完」。
+4. 必须确认：`docs/handoff/` 出现文档、有新 commit、session 改名成 `📦 …`；Codex 的警告也停止重复。
+5. 离开测试 session，在原 shell 执行 `rm -rf "$TEST_REPO"`。正常 session 不带测试变量，行为完全不变。
 
 ### 失败时（AI agent 的责任，不要只说「装完了」就结束）
 
@@ -99,5 +105,5 @@ cd jr_ai_agent_skills/installer
   测试时第二个指令才会看到（正常使用无感，70% 不会只差一回合）
 - 测试旋钮：`CONTEXT_MONITOR_TEST_WINDOW`（Claude）/ `CODEX_TEST_MAX_CONTEXT_WINDOW`（Codex），
   只影响带着变量启动的那个 session
-- Codex 触发后会**持续催**直到 AI 照指示 `touch /tmp/codex-context-monitor/{pid}.handoff`——
+- Codex 触发后会**持续催**直到 AI 建立 hook 消息指定的 `.handoff` marker——
   这是防漏设计，不是 bug

@@ -63,21 +63,27 @@ cd jr_ai_agent_skills/installer
 
 verify simulates a context-monitor trigger (fake transcript + shrunken window). Proceed only when everything PASSes.
 
-### Step 2: Real trigger test (guide the user through it)
+### Step 2: Complete handoff test (guide the user through it)
 
-Use a "shrunken window" to make the warning appear early — no need to actually chat up to 70%:
+The handoff creates a document and commit, so it must run in a temporary repo. Ask the user to open a **new terminal** and paste:
 
-1. Ask the user to open a **new terminal** and start a test session inside a git repo:
+```bash
+TEST_REPO="$(mktemp -d "${TMPDIR:-/tmp}/jr-skill-e2e.XXXXXX")" && \
+git -C "$TEST_REPO" init -q && printf '# e2e skill test\n' > "$TEST_REPO/README.md" && \
+git -C "$TEST_REPO" add README.md && \
+git -C "$TEST_REPO" config user.name 'Skill E2E' && \
+git -C "$TEST_REPO" config user.email 'skill-e2e@example.invalid' && \
+git -C "$TEST_REPO" commit -qm init && \
+cd "$TEST_REPO"
+```
+
+1. Start the test session:
    - Claude Code: `CONTEXT_MONITOR_TEST_WINDOW=30000 claude`
-   - Codex: `CODEX_TEST_MAX_CONTEXT_WINDOW=20000 codex`
-2. Ask it to do 1–2 hands-on things (e.g. "list the files in this folder"), then give it a **second command** (e.g. "list them again")
-3. Expected: **from the second command's turn onward**, the AI starts saying `⚠️ Context 已用 …（測試模式）` (context warning, test mode) and offers to write a handoff document — **seeing the warning = hook verified**; the session can be closed right away, no need to finish the handoff
-4. (Optional) Let it finish: check that a file appears under `docs/handoff/`, a commit exists, and the session is renamed to `📦 …`
-5. Remind the user: just close the test session when done; normal sessions without the env var behave exactly as before
-
-### Step 3: Manual handoff verification (optional)
-
-In any normal session, type "write a handoff" → it should produce the document + commit + 📦 rename + report a single-line starter prompt.
+   - Codex: `CODEX_TEST_MAX_CONTEXT_WINDOW=5000 codex`
+2. Ask it to read README and list the files; for Codex, then give a second command: "list them again."
+3. After the test-mode context warning appears, ask it to "follow the warning and complete every handoff step."
+4. Required checks: a file appears under `docs/handoff/`, a new commit exists, the session name starts with `📦 …`, and the Codex warning stops repeating.
+5. Exit the test session and run `rm -rf "$TEST_REPO"` in the original shell. Normal sessions without the test variable behave exactly as before.
 
 ### On failure (the AI agent's responsibility — do not just say "installed" and stop)
 
@@ -97,9 +103,8 @@ With `gh` CLI authed it files the issue directly; otherwise the body lands in th
   hook's stdin — it does not guess the file by mtime (which picks the wrong file with concurrent
   sessions; that is a bug we actually hit and fixed)
 - The Codex side prefers the `token_count` events in the rollout JSONL; when unavailable it falls back to
+  per-session "tool call count ≈ usage" estimation
 - Codex writes `token_count` at the **end of each turn**, while the hook runs mid-turn → the warning lags by one turn; in tests it shows up on the second command (imperceptible in real use — hitting 70% is never a one-turn margin)
-  "tool call count ≈ usage" estimation
 - Test knobs: `CONTEXT_MONITOR_TEST_WINDOW` (Claude) / `CODEX_TEST_MAX_CONTEXT_WINDOW` (Codex) —
   they only affect the session launched with the variable set
-- After triggering, the Codex side **keeps nagging** until the AI runs
-  `touch /tmp/codex-context-monitor/{pid}.handoff` as instructed — that is leak-proofing by design, not a bug
+- After triggering, the Codex side **keeps nagging** until the AI creates the `.handoff` marker named in the hook message — that is leak-proofing by design, not a bug

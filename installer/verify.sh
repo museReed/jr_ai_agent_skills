@@ -194,12 +194,48 @@ say "═════════════════════════
 say " 結果：$PASS PASS / $FAIL FAIL / $WARN WARN"
 say "════════════════════════════════════════════"
 say ""
-say "▍5. 人工 E2E 驗證（自動檢查全過後，引導用戶做這三步）"
-say "  1. 開一個【新的】terminal（舊的還在舊環境，測了不算）"
-say "  2. 跑 claude（或 codex），打一句有任務內容的話，例如「列出這個資料夾的檔案」"
-say "  3. 預期：第一個回合內 terminal tab 變成「{emoji} 任務描述」"
-say "     Codex 額外看：sidebar 的 session 名稱也應同步"
-say "  沒變 → 跑 ./verify.sh --report，把報告開成 GitHub issue（見 TROUBLESHOOTING.md）"
+say "▍5. 人工 E2E 驗證（自動檢查全過後依序完成）"
+say "  每項都使用新的 terminal / session；舊 session 不會重新載入剛安裝的 skill。"
+say ""
+say "  5A. auto-rename"
+if [ "$TARGET" != "codex" ]; then
+  say "    Claude：開新 terminal 執行 claude，輸入「列出這個資料夾的檔案」。"
+  say "    預期：第一個回合內 terminal tab 變成「{emoji} 任務描述」。"
+fi
+if [ "$TARGET" != "claude" ]; then
+  say "    Codex：開新 terminal 執行 codex，輸入同一句任務。"
+  say "    預期：第一個回合內 terminal tab 與 sidebar 都變成任務名稱。"
+fi
+say ""
+say "  5B. handoff（完整測試，只能在下列臨時 repo 進行）"
+say '    測試啟動指令會建立臨時 git repo；測試變數只影響這個 session。'
+if [ "$TARGET" != "codex" ]; then
+  say "    Claude：開新 terminal，貼上："
+  say '      TEST_REPO="$(mktemp -d "${TMPDIR:-/tmp}/jr-skill-e2e.XXXXXX")" && git -C "$TEST_REPO" init -q && printf "# e2e skill test\n" > "$TEST_REPO/README.md" && git -C "$TEST_REPO" add README.md && git -C "$TEST_REPO" config user.name "Skill E2E" && git -C "$TEST_REPO" config user.email "skill-e2e@example.invalid" && git -C "$TEST_REPO" commit -qm init && cd "$TEST_REPO" && CONTEXT_MONITOR_TEST_WINDOW=30000 claude'
+  say "    叫它讀 README 並列出檔案；看到測試模式警告後，輸入「照警告完整寫 handoff」。"
+  say "    預期：docs/handoff 有文件、有新 commit，session 名稱變成 📦 開頭。"
+fi
+if [ "$TARGET" != "claude" ]; then
+  say "    Codex：開新 terminal，貼上："
+  say '      TEST_REPO="$(mktemp -d "${TMPDIR:-/tmp}/jr-skill-e2e.XXXXXX")" && git -C "$TEST_REPO" init -q && printf "# e2e skill test\n" > "$TEST_REPO/README.md" && git -C "$TEST_REPO" add README.md && git -C "$TEST_REPO" config user.name "Skill E2E" && git -C "$TEST_REPO" config user.email "skill-e2e@example.invalid" && git -C "$TEST_REPO" commit -qm init && cd "$TEST_REPO" && CODEX_TEST_MAX_CONTEXT_WINDOW=5000 codex'
+  say "    叫它讀 README 並列出檔案，再下第二個指令「再列一次」；看到警告後要求完整寫 handoff。"
+  say "    預期：docs/handoff 有文件、有新 commit、tab/sidebar 變成 📦 開頭，且警告停止重複。"
+fi
+say '    測完離開 AI session，在原 shell 執行：rm -rf "$TEST_REPO"'
+say ""
+say "  5C. structured-questions"
+if [ "$TARGET" != "codex" ]; then
+  say "    Claude：在新 session 輸入「/structured-questions 我想轉職」。"
+  say "    預期：出現分組選項、推薦項與各選項取捨。"
+fi
+if [ "$TARGET" != "claude" ]; then
+  say '    Codex Default mode：輸入「$structured-questions 我想轉職」。'
+  say "    預期：只顯示切換提示並停止；回覆「不切換」後才列文字選項。"
+  say '    另開新 session，再輸入「$structured-questions 幫我選資料庫」後依提示輸入「/plan 繼續剛才的 structured questions」。'
+  say "    預期：切換後用 request_user_input 顯示互動選單。"
+fi
+say ""
+say "  任一項失敗 → 跑 ./verify.sh --report，依 TROUBLESHOOTING.md 排查或建立 issue。"
 
 if [ -n "$REPORT" ]; then
   {
