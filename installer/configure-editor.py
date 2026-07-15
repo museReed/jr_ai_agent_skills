@@ -9,6 +9,8 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+from editor_settings import resolve
+
 
 def main():
     if len(sys.argv) != 2 or sys.argv[1] not in {
@@ -30,13 +32,8 @@ def main():
 
     home = Path(os.environ.get("JR_INSTALL_HOME", str(Path.home()))).expanduser()
     platform = os.environ.get("JR_INSTALL_PLATFORM", sys.platform).lower()
-    base = (
-        home / "Library" / "Application Support"
-        if platform == "darwin"
-        else home / ".config"
-    )
-    app = {"cursor": "Cursor", "antigravity": "Antigravity", "vscode": "Code"}[editor]
-    path = base / app / "User" / "settings.json"
+    xdg = os.environ.get("JR_INSTALL_XDG_CONFIG_HOME", os.environ.get("XDG_CONFIG_HOME"))
+    path = resolve(editor, home, platform, xdg)
     config = {}
     original = None
     if path.exists():

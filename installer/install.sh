@@ -65,6 +65,7 @@ echo "[1/3] Display layer (wrappers + watcher) → ~/.local/bin"
 install_file "$SRC_DIR/bin/ai-tab-sync.sh" "$HOME/.local/bin/ai-tab-sync.sh" 755
 [ "$TARGET" != "codex" ]  && install_file "$SRC_DIR/bin/myclaude" "$HOME/.local/bin/myclaude" 755
 [ "$TARGET" != "claude" ] && install_file "$SRC_DIR/bin/mycodex"  "$HOME/.local/bin/mycodex" 755
+python3 "$SRC_DIR/configure-editor.py" "$CONFIRMED_EDITOR"
 
 # --- Claude Code ---
 if [ "$TARGET" != "codex" ]; then
@@ -116,6 +117,7 @@ fi
 # --- Codex ---
 if [ "$TARGET" != "claude" ]; then
   echo "[3/3] Codex: hooks + skills"
+  python3 "$SRC_DIR/configure-codex.py"
   install_file "$SRC_DIR/hooks/codex-session-namer.sh" "$HOME/.codex/hooks/codex-session-namer.sh" 755
   install_file "$SRC_DIR/hooks/codex-context-monitor.sh" "$HOME/.codex/hooks/codex-context-monitor.sh" 755
   for skill in auto-rename handoff structured-questions; do

@@ -9,6 +9,7 @@ from pathlib import Path
 INSTALLER = Path(__file__).resolve().parents[1]
 DETECTOR = INSTALLER / "detect-environment.py"
 CONFIGURATOR = INSTALLER / "configure-editor.py"
+CODEX_CONFIGURATOR = INSTALLER / "configure-codex.py"
 
 
 class DetectorTests(unittest.TestCase):
@@ -32,7 +33,7 @@ class DetectorTests(unittest.TestCase):
             for editor in settings:
                 app = {
                     "cursor": "Cursor",
-                    "antigravity": "Antigravity",
+                    "antigravity": "Antigravity IDE",
                     "vscode": "Code",
                 }[editor]
                 path = (
@@ -149,6 +150,25 @@ class DetectorTests(unittest.TestCase):
         path = self.run_detector(platform="linux")["editors"]["cursor"]["settings_path"]
         self.assertTrue(path.endswith("/.config/Cursor/User/settings.json"))
 
+    def test_linux_respects_xdg_config_home(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            env = os.environ.copy()
+            env.update(
+                {
+                    "JR_DETECT_HOME": str(root / "home"),
+                    "JR_DETECT_PLATFORM": "linux",
+                    "JR_DETECT_XDG_CONFIG_HOME": str(root / "xdg"),
+                    "JR_DETECT_PATH": str(root),
+                    "JR_DETECT_PARENT_PROCESSES": "",
+                }
+            )
+            output = subprocess.run(
+                ["python3", str(DETECTOR)], check=True, capture_output=True, text=True, env=env
+            ).stdout
+            path = json.loads(output)["editors"]["antigravity"]["settings_path"]
+            self.assertEqual(path, str(root / "xdg" / "Antigravity IDE" / "User" / "settings.json"))
+
 
 class ConfiguratorTests(unittest.TestCase):
     def run_configurator(self, root, editor):
@@ -162,7 +182,7 @@ class ConfiguratorTests(unittest.TestCase):
         )
 
     def settings_path(self, root, editor):
-        app = {"cursor": "Cursor", "antigravity": "Antigravity", "vscode": "Code"}[
+        app = {"cursor": "Cursor", "antigravity": "Antigravity IDE", "vscode": "Code"}[
             editor
         ]
         return root / "Library" / "Application Support" / app / "User" / "settings.json"
@@ -208,6 +228,42 @@ class ConfiguratorTests(unittest.TestCase):
             self.assertEqual(self.run_configurator(root, "cursor").returncode, 0)
             self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
+    def test_antigravity_legacy_path_is_preserved_when_it_already_exists(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = (
+                root
+                / "Library"
+                / "Application Support"
+                / "Antigravity"
+                / "User"
+                / "settings.json"
+            )
+            path.parent.mkdir(parents=True)
+            path.write_text("{}\n")
+
+            result = self.run_configurator(root, "antigravity")
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(
+                json.loads(path.read_text())["terminal.integrated.tabs.title"],
+                "${sequence}",
+            )
+            self.assertFalse(
+                (root / "Library" / "Application Support" / "Antigravity IDE").exists()
+            )
+
+    def test_antigravity_existing_product_directory_wins_before_settings_exists(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy = root / "Library" / "Application Support" / "Antigravity"
+            legacy.mkdir(parents=True)
+            result = self.run_configurator(root, "antigravity")
+            path = legacy / "User" / "settings.json"
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(path.exists())
+            self.assertFalse((root / "Library" / "Application Support" / "Antigravity IDE").exists())
+
     def test_jsonc_failure_leaves_original_byte_identical(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -236,6 +292,53 @@ class ConfiguratorTests(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
 
 
+class CodexConfiguratorTests(unittest.TestCase):
+    def run_configurator(self, root, *args):
+        env = os.environ.copy()
+        env["JR_INSTALL_HOME"] = str(root)
+        return subprocess.run(
+            ["python3", str(CODEX_CONFIGURATOR), *args],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+    def test_adds_tui_section_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / ".codex" / "config.toml"
+            path.parent.mkdir(parents=True)
+            path.write_text('model = "example"\n')
+            self.assertEqual(self.run_configurator(root).returncode, 0)
+            first = path.read_text()
+            self.assertIn("[tui]\nterminal_title = []", first)
+            self.assertEqual(self.run_configurator(root).returncode, 0)
+            self.assertEqual(path.read_text(), first)
+            self.assertEqual(len(list(path.parent.glob("config.toml.bak.*"))), 1)
+            self.assertEqual(self.run_configurator(root, "--check").returncode, 0)
+
+    def test_updates_existing_tui_without_losing_other_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / ".codex" / "config.toml"
+            path.parent.mkdir(parents=True)
+            path.write_text('[tui]\nterminal_title = ["project-name"]\nnotifications = true\n\n[other]\nvalue = 1\n')
+            self.assertEqual(self.run_configurator(root).returncode, 0)
+            text = path.read_text()
+            self.assertIn("terminal_title = []", text)
+            self.assertIn("notifications = true", text)
+            self.assertIn("[other]\nvalue = 1", text)
+
+    def test_adds_key_to_existing_tui_before_next_section(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / ".codex" / "config.toml"
+            path.parent.mkdir(parents=True)
+            path.write_text("[tui]\nnotifications = true\n[other]\nvalue = 1\n")
+            self.assertEqual(self.run_configurator(root).returncode, 0)
+            self.assertIn("notifications = true\nterminal_title = []\n[other]", path.read_text())
+
+
 class FlowFixtureTests(unittest.TestCase):
     def test_all_locales_embed_preinstall_question_state_machine(self):
         repo = INSTALLER.parent
@@ -257,6 +360,7 @@ class FlowFixtureTests(unittest.TestCase):
         self.assertIn("--editor=cursor|antigravity|vscode|native", verify)
         self.assertIn("Copy/paste this continuation prompt", install)
         self.assertIn("VERIFICATION.md", install)
+        self.assertIn('configure-editor.py" "$CONFIRMED_EDITOR', install)
 
     def test_removed_section_references_do_not_return(self):
         readme = (INSTALLER / "README.md").read_text()
@@ -296,6 +400,9 @@ class InstallerInterfaceTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn(expected, result.stdout)
                 self.assertNotIn("<confirmed-editor>", result.stdout)
+                if target != "claude":
+                    config = Path(home) / ".codex" / "config.toml"
+                    self.assertIn("terminal_title = []", config.read_text())
 
     def test_invalid_or_missing_editor_is_rejected(self):
         for args in (("codex",), ("codex", "--editor=zed")):

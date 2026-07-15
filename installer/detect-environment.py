@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from editor_settings import resolve
+
 
 def sanitize_process_name(value):
     basename = value.strip().rsplit("/", 1)[-1].lower()
@@ -25,16 +27,8 @@ def sanitize_process_name(value):
 
 
 def editor_paths(home, platform):
-    base = (
-        home / "Library" / "Application Support"
-        if platform == "darwin"
-        else home / ".config"
-    )
-    return {
-        "cursor": base / "Cursor" / "User" / "settings.json",
-        "antigravity": base / "Antigravity" / "User" / "settings.json",
-        "vscode": base / "Code" / "User" / "settings.json",
-    }
+    xdg = os.environ.get("JR_DETECT_XDG_CONFIG_HOME", os.environ.get("XDG_CONFIG_HOME"))
+    return {name: resolve(name, home, platform, xdg) for name in ("cursor", "antigravity", "vscode")}
 
 
 def parent_processes():
