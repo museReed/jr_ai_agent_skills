@@ -53,11 +53,12 @@ except Exception:
     pass
 " 2>/dev/null)
 
-# 已知限制：cache 沒有的新 model → 保守假設 200k（可能低估）。發現「MAX_CONTEXT 保守預設」
-# 字樣時，跑一次驗證並補進 cache：
+# 已知限制：cache 沒有的新 model → 預設假設 1M（賭未來 model context 只會越來越大）。
+# 代價：若新 model 其實是小 context（如 haiku 類 200k）且未收錄，會過晚甚至不觸發——
+# 發現「MAX_CONTEXT 預設」字樣時，跑一次驗證並補進 cache：
 #   claude -p "hi" --model <alias> --output-format json | python3 -c \
 #     "import json,sys; print(json.load(sys.stdin)['modelUsage'])"
-[ -z "$MAX_CONTEXT" ] && MAX_CONTEXT=200000  # 保守預設（cache 未收錄此 model）
+[ -z "$MAX_CONTEXT" ] && MAX_CONTEXT=1000000  # 預設（cache 未收錄此 model；賭大 context）
 
 # Temporary small-context test mode: launch as
 #   CONTEXT_MONITOR_TEST_WINDOW=30000 claude
