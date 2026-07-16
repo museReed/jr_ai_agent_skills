@@ -142,6 +142,9 @@ if [ "$TARGET" != "claude" ]; then
   check_registered "註冊 namer PostToolUse" "$HOME/.codex/hooks.json" "codex-session-namer.sh" "PostToolUse"
   check_registered "註冊 namer UserPromptSubmit" "$HOME/.codex/hooks.json" "codex-session-namer.sh" "UserPromptSubmit"
   check_registered "註冊 context-monitor" "$HOME/.codex/hooks.json" "codex-context-monitor.sh" "PostToolUse"
+  JR_INSTALL_HOME="$HOME" python3 "$SRC_DIR/configure-codex.py" --check \
+    && ok "Codex 內建 terminal title 已停用" \
+    || bad "Codex 內建 terminal title 已停用" "config.toml 需要 [tui] terminal_title = []，否則 session name 會被覆寫"
 
   SIM_OUT=$(echo '{"session_id":""}' | bash "$HOME/.codex/hooks/codex-session-namer.sh" prompt 2>/dev/null)
   echo "$SIM_OUT" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['hookSpecificOutput']['hookEventName']=='UserPromptSubmit'" 2>/dev/null \
@@ -189,30 +192,22 @@ say "▍4. 編輯器 terminal 設定（VS Code 系才需要）"
 if [ "$CONFIRMED_EDITOR" = "native" ]; then
   ok "已確認 native／other terminal：不修改 editor settings"
 elif [ -n "$CONFIRMED_EDITOR" ]; then
-  case "$CONFIRMED_EDITOR" in
-    cursor) APP="Cursor" ;;
-    antigravity) APP="Antigravity" ;;
-    vscode) APP="Code" ;;
-  esac
-  SETTINGS="$HOME/Library/Application Support/$APP/User/settings.json"
-  [ -f "$SETTINGS" ] || SETTINGS="$HOME/.config/$APP/User/settings.json"
+  SETTINGS=$(JR_INSTALL_HOME="$HOME" python3 "$SRC_DIR/editor_settings.py" resolve "$CONFIRMED_EDITOR")
   if grep -qs '"terminal.integrated.tabs.title".*sequence' "$SETTINGS"; then
-    ok "已確認的 ${APP}：tabs.title 含 \${sequence}"
+    ok "已確認的 ${CONFIRMED_EDITOR}：tabs.title 含 \${sequence}（${SETTINGS}）"
   else
-    bad "已確認的 ${APP}：tabs.title 含 \${sequence}" "設定不存在或尚未完成"
+    bad "已確認的 ${CONFIRMED_EDITOR}：tabs.title 含 \${sequence}" "設定不存在或尚未完成：${SETTINGS}"
   fi
-  for OTHER in "Cursor" "Antigravity" "Code"; do
-    [ "$OTHER" = "$APP" ] && continue
-    OTHER_SETTINGS="$HOME/Library/Application Support/$OTHER/User/settings.json"
-    [ -f "$OTHER_SETTINGS" ] || OTHER_SETTINGS="$HOME/.config/$OTHER/User/settings.json"
+  for OTHER in cursor antigravity vscode; do
+    [ "$OTHER" = "$CONFIRMED_EDITOR" ] && continue
+    OTHER_SETTINGS=$(JR_INSTALL_HOME="$HOME" python3 "$SRC_DIR/editor_settings.py" resolve "$OTHER")
     [ -f "$OTHER_SETTINGS" ] && say "  INFO  未選取的 ${OTHER} 設定檔存在；不納入 PASS/FAIL，也不修改。"
   done
 else
   say "  （未提供 --editor；以下只列資訊。正式驗證請傳入學生確認的 editor。）"
   FOUND_EDITOR=""
-  for APP in "Cursor" "Antigravity" "Code"; do
-    SETTINGS="$HOME/Library/Application Support/$APP/User/settings.json"
-    [ -f "$SETTINGS" ] || SETTINGS="$HOME/.config/$APP/User/settings.json"
+  for APP in cursor antigravity vscode; do
+    SETTINGS=$(JR_INSTALL_HOME="$HOME" python3 "$SRC_DIR/editor_settings.py" resolve "$APP")
     [ -f "$SETTINGS" ] || continue
     FOUND_EDITOR=1
     say "  INFO  ${APP} 設定檔存在；未選取，不納入 PASS/FAIL。"
