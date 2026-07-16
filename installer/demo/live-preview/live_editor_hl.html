@@ -1,5 +1,6 @@
 <!-- 高亮版即時編輯器：左邊逐字打 code + 語法高亮（用昨天 terminal 的 --term-* 色），
-     右邊即時渲染。CSS 打字時只在「規則打完（}）」才刷新右邊；HTML 標籤逐字刷新。 -->
+     右邊即時長出網頁。右邊全程只開一份 document、不重載：body 用 document.write
+     逐段 stream 進去，CSS 直接改 <style> 的 textContent。由 type_hl.py 驅動。 -->
 <!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -134,31 +135,38 @@
     return toks.join('');
   }
 
-  // 判斷此刻是否在 <style> 內、且 CSS 規則尚未打完 → 尚未打完就別刷新右邊
-  function inUnfinishedCSS(raw){
-    const openStyle=raw.lastIndexOf('<style');
-    const closeStyle=raw.lastIndexOf('</style>');
-    const gt=openStyle>=0 ? raw.indexOf('>',openStyle) : -1;
-    const insideStyle = openStyle>closeStyle && gt!==-1;
-    if(!insideStyle) return false;             // HTML 區 → 逐字刷新
-    const css=raw.slice(gt+1);
-    let bal=0; for(const ch of css){ if(ch==='{')bal++; else if(ch==='}')bal--; }
-    const trimmed=css.replace(/\s+$/,'');
-    // 只有「括號平衡 且 剛好收在 }」才算一條規則完成、可安全套用
-    const ruleDone = bal===0 && (trimmed==='' ? false : trimmed.endsWith('}'));
-    return !ruleDone;                          // 未完成 → true（先不刷新）
-  }
-
+  // --- 右邊：一份「從頭到尾都不重載」的 document。
+  // 之前每拍都用 srcdoc / data: / file:// 重新載入整份文件，等於每秒把畫面
+  // 打掉重畫七八次——白閃、捲軸歸零、再跳錨點，那個中間態就是高頻跳動的
+  // 來源；換哪種 URL 都只是換「用什麼方式重載」，救不了。
+  // 這裡改成 document.open() 開一次 stream，之後只把「新打出來的那幾個字」
+  // write 進去：已解析的節點原地不動，捲動位置自然保留，寫到哪就捲到哪。
+  // CSS 走另一條路——直接改 head 那顆 <style> 的 textContent。規則沒打完
+  // 瀏覽器本來就會忽略，等於免費得到「一條規則完成才套用」。
   window.T = {
-    full:'',
-    load(full){ this.full=full; this.to(0); },
-    to(k){
-      const raw=this.full.slice(0,k);
-      codeEl.innerHTML=highlight(raw)+'<span class="car"></span>';   // 左邊一定逐字上色
+    doc: null,
+    styleEl: null,
+    begin(){
+      const doc = preview.contentDocument;
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><style id="live-css"></style></head><body>');
+      this.doc = doc;
+      this.styleEl = doc.getElementById('live-css');
+    },
+    css(text){ if(this.styleEl) this.styleEl.textContent = text; },
+    write(chunk){ if(this.doc && chunk) this.doc.write(chunk); },
+    follow(){
+      if(!this.doc) return;
+      const se = this.doc.scrollingElement || this.doc.documentElement;
+      if(se) se.scrollTop = se.scrollHeight;   // 寫到哪捲到哪；沒重載所以不閃
+    },
+    end(){ if(this.doc){ try{ this.doc.close(); }catch(e){} } },
+    left(raw){
+      codeEl.innerHTML=highlight(raw)+'<span class="car"></span>';
       codeEl.scrollTop=codeEl.scrollHeight;
-      if(inUnfinishedCSS(raw)){ modeEl.textContent='CSS 撰寫中…'; return; } // 右邊 hold
-      modeEl.textContent='';
-      preview.srcdoc=raw;                                            // 安全點才刷新右邊
+    },
+    mode(text){
+      modeEl.textContent=text;
     }
   };
 </script>
