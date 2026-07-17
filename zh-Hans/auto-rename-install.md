@@ -134,6 +134,7 @@ cd jr_ai_agent_skills/installer
 | `ai-tab-sync.sh` | `~/.local/bin/` | watcher：轮询 sync 文件 → OSC 写 tty |
 | sync 文件 | `~/.ai-session-names/{pid}.txt` | tab 名字的唯一事实来源 |
 | `session-auto-namer.sh` | `~/.claude/hooks/` | UserPromptSubmit（第一句话命名）+ PostToolUse（#5 重评、每 10 次兜底） |
+| `set-session-name.sh` | `~/.claude/hooks/` | 命名写入包装脚本（hook 自动命名与 `/auto-rename` 共用；把写文件/OSC/清 marker 收进单一脚本，免 `&&` 串接、一条白名单放行） |
 | `codex-session-namer.sh` | `~/.codex/hooks/` | 同上 + 消化 relay 文件、代写 SQLite |
 | relay 文件（Codex） | `/tmp/codex-session-namer/{pid}.pending` | 模型在 sandbox 里唯一能写的交棒点 |
 | skill | `~/.claude/skills/auto-rename/`、`~/.agents/skills/auto-rename/` | 手动 `/auto-rename` 时的规则 |

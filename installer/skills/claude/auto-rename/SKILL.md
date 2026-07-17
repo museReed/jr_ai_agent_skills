@@ -57,18 +57,16 @@ Key rules:
 
 ### Step 2: 執行命名
 
-若 `$AI_TAB_SYNC_FILE` 存在（透過 `myclaude` wrapper 啟動），寫 sync file；
-否則直接寫 tty device（stdout 的 OSC 會被 Claude Code 過濾，不能用）：
+一個 Bash call 呼叫包裝腳本即可。它內部完成 PID 定位 + 寫 session-name 檔 + 寫
+tab-sync file（或 OSC 到 tty）+ 清 default marker——全在腳本內，不含 `&&` 串接
+（不觸發 block-chained-bash），且只需一條白名單放行整支腳本：
 
 ```bash
-TERMINAL_PID=$(ps -o ppid= -p $PPID 2>/dev/null | tr -d ' ') && \
-mkdir -p ~/.claude/session-names && \
-echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && \
-if [ -n "$AI_TAB_SYNC_FILE" ]; then echo '{名稱}' > "$AI_TAB_SYNC_FILE"; \
-else TTY_DEV=$(ps -o tty= -p $PPID 2>/dev/null | tr -d ' '); \
-  [ -n "$TTY_DEV" ] && [ -w "/dev/$TTY_DEV" ] && printf '\033]0;{名稱}\007' > "/dev/$TTY_DEV"; fi ; \
-rm -f /tmp/claude-session-namer/$PPID.default
+$HOME/.claude/hooks/set-session-name.sh '{名稱}' $PPID
 ```
+
+`$PPID` 當第二個參數傳給腳本（腳本自己 `ps -o ppid=` 解析出 terminal PID，與 hook
+自動命名走同一支腳本、行為一致）。
 
 ### Step 3: 回報
 

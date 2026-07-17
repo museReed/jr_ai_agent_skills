@@ -136,6 +136,7 @@ With `gh` CLI authed it files the issue directly; otherwise the body lands in th
 | `ai-tab-sync.sh` | `~/.local/bin/` | watcher: polls the sync file → writes OSC to the tty |
 | sync file | `~/.ai-session-names/{pid}.txt` | single source of truth for the tab name |
 | `session-auto-namer.sh` | `~/.claude/hooks/` | UserPromptSubmit (name from first message) + PostToolUse (#5 re-evaluation, every-10 safety net) |
+| `set-session-name.sh` | `~/.claude/hooks/` | Naming-write wrapper (shared by hook auto-naming and `/auto-rename`; folds file/OSC writes + marker cleanup into one script — no `&&` chain, one allowlist rule) |
 | `codex-session-namer.sh` | `~/.codex/hooks/` | same as above + consumes the relay file, writes SQLite on the model's behalf |
 | relay file (Codex) | `/tmp/codex-session-namer/{pid}.pending` | the only handoff point the model can write from inside the sandbox |
 | skill | `~/.claude/skills/auto-rename/`, `~/.agents/skills/auto-rename/` | rules for manual `/auto-rename` |

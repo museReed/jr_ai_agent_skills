@@ -71,6 +71,7 @@ python3 "$SRC_DIR/configure-editor.py" "$CONFIRMED_EDITOR"
 if [ "$TARGET" != "codex" ]; then
   echo "[2/3] Claude Code: hooks + skills"
   install_file "$SRC_DIR/hooks/session-auto-namer.sh" "$HOME/.claude/hooks/session-auto-namer.sh" 755
+  install_file "$SRC_DIR/hooks/set-session-name.sh" "$HOME/.claude/hooks/set-session-name.sh" 755
   install_file "$SRC_DIR/hooks/context-monitor.sh" "$HOME/.claude/hooks/context-monitor.sh" 755
   for skill in auto-rename handoff structured-questions; do
     mkdir -p "$HOME/.claude/skills/$skill"
@@ -78,6 +79,14 @@ if [ "$TARGET" != "codex" ]; then
     cp -R "$SRC_DIR/skills/claude/$skill/." "$HOME/.claude/skills/$skill/"
     echo "  installed: ~/.claude/skills/$skill/"
   done
+  # per-machine: bake the wrapper's absolute path into /auto-rename's SKILL.md so its
+  # manual call matches the allowlist rule (Bash() 不吃 $HOME；hook 走 runtime 展開，手動 skill 靠這步對齊)
+  python3 - "$HOME/.claude/skills/auto-rename/SKILL.md" "$HOME" <<'PYEOF'
+import sys
+p, home = sys.argv[1], sys.argv[2]
+s = open(p).read()
+open(p, "w").write(s.replace("$HOME/.claude/hooks/set-session-name.sh", home + "/.claude/hooks/set-session-name.sh"))
+PYEOF
 
   # 1M context-window 偵測用的快取種子（context-monitor.sh 靠它查真實視窗，避免把 1M 模型當 200k）。
   # 只在缺檔時種下，不覆蓋學生本機已 populated 的版本。

@@ -33,11 +33,12 @@ if [ -z "${AI_TAB_SYNC_FILE:-}" ]; then
   fi
 fi
 
-if [ -n "${AI_TAB_SYNC_FILE:-}" ]; then
-  WRITE_CMD="echo '{名稱}' > $AI_TAB_SYNC_FILE && mkdir -p ~/.claude/session-names && echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && rm -f /tmp/claude-session-namer/${CLAUDE_PID}.default"
-else
-  WRITE_CMD="mkdir -p ~/.claude/session-names && echo '{名稱}' > ~/.claude/session-names/${TERMINAL_PID}.txt && rm -f /tmp/claude-session-namer/${CLAUDE_PID}.default"
-fi
+# One wrapper script does all naming writes (tab-sync file / OSC + session-name
+# file + default-marker cleanup) — no && chain (block-chained-bash won't fire),
+# and one whitelist rule covers it. Pass the hook's own CLAUDE_PID literally; it
+# must NOT be re-expanded as $PPID in the AI's Bash-tool shell, which can sit one
+# process layer deeper → off-by-one → the name lands in the wrong session-name file.
+WRITE_CMD="$HOME/.claude/hooks/set-session-name.sh '{名稱}' ${CLAUDE_PID}"
 
 RULES="命名規則：\n- 格式：{emoji} {中文敘述}，emoji 取代英文動詞，技術名詞可保留英文\n- 總長度 ≤ 40 字元\n- emoji 只能從這 8 個選：🏗️ build/implement/refactor、🔧 fix、🐛 debug、📐 plan/design、📋 review/audit、💬 discuss、⛴️ pilot/spike、🔍 research"
 
