@@ -4,7 +4,7 @@
   對照 macOS 版做法：背景 watcher 直接 printf OSC 到 /dev/tty。
   Windows 沒有 /dev/tty，所以要測三條替代路徑通不通。
 
-  跑法：在「Windows Terminal」和「VS Code 整合終端」各開一個 PowerShell，
+  跑法：在「Windows Terminal」開 PowerShell，
         分別在 PowerShell 7 (pwsh) 和 Windows PowerShell 5.1 各跑一次。
         跑完把畫面 tab 標題變化記到 SPIKE-CHECKLIST.md。
 #>
