@@ -1,0 +1,97 @@
+# Windows / PowerShell runtime — auto-rename 的 tab 命名
+
+bash runtime 的 PowerShell 對照版。定案脈絡見
+`docs/handoff/2026-07-25-workshop-terminal-tabtitle-verified.md`，
+可行性證據見 `docs/spikes/windows-tab-title/SPIKE-CHECKLIST.md`。
+
+支援矩陣：**Windows Terminal** × **Windows PowerShell 5.1 或 PowerShell 7**（不強制 7）。
+IDE 整合終端不支援，也不打算支援。
+
+## 檔案對照
+
+| bash | PowerShell | 角色 |
+|---|---|---|
+| `installer/bin/ai-tab-sync.sh` | `installer/bin/ai-tab-sync.ps1` | 背景 watcher：輪詢 sync 檔 → 寫 OSC 改 tab |
+| `installer/bin/myclaude` | `installer/bin/myclaude.ps1` | 啟動器：開 sync 檔 + 起 watcher + 跑 claude |
+| `installer/bin/mycodex` | `installer/bin/mycodex.ps1` | 同上，跑 codex |
+| `installer/hooks/set-session-name.sh` | `installer/hooks/set-session-name.ps1` | 唯一命名寫入口（hook 與 auto-rename skill 共用） |
+| `installer/hooks/session-auto-namer.sh` | `installer/hooks/session-auto-namer.ps1` | Claude Code hook：適時要求模型命名 |
+| `installer/hooks/codex-session-namer.sh` | `installer/hooks/codex-session-namer.ps1` | Codex hook：relay 檔 + SQLite sidebar 名 |
+
+行為與 bash 版一致（輪詢 1 秒、prompt#1 命名、tool call 第 5 次重評、之後每 10 次補命名）。
+
+## 三個平台差異（會改到寫法的地方）
+
+| 差異 | bash 做法 | Windows 做法 |
+|---|---|---|
+| 沒有 `/dev/tty` | 背景程序 `printf` OSC 到 tty device | watcher 共用 console → `[Console]::Write`；hook 的 stdout 是 pipe，改開 console 裝置 `\\.\CONOUT$` |
+| 沒有 `$PPID` | hook 直接讀 `$PPID` | `Get-CimInstance Win32_Process` 往上找 parent |
+| 背景程序不隨父程序死 | `trap` 裡 `kill` | 同樣在 `finally` 殺，另加 watcher 自檢父 pid 消失就退出，避免孤兒 |
+| 沒有保證的 `sqlite3.exe` | `sqlite3` CLI | Python stdlib `sqlite3`（`py` → `python3` → `python`） |
+| `.ps1` 不能直接當 PATH 指令 | `myclaude` 可執行檔 | `$PROFILE` 裡包 function（見下） |
+| CJK / emoji 編碼 | 天生 UTF-8 | 明設 `UTF8Encoding($false)` 讀寫檔與 console；hook JSON 直接寫 bytes |
+
+### ⚠️ `.ps1` 檔本身必須存成「UTF-8 with BOM」
+
+Windows PowerShell 5.1 **沒有 BOM 就用系統 ANSI codepage 讀 `.ps1`**，
+腳本裡的中文字面值（命名規則、`(等待命名)`）會直接變亂碼餵給模型與 tab。
+PowerShell 7 兩種都吃，所以帶 BOM 是唯一同時相容的存法。
+
+六支腳本目前全部帶 BOM。**後續編輯時別讓編輯器把 BOM 拿掉**——
+驗證腳本的 T2 就是在守這件事。
+
+## 安裝（PowerShell installer 尚未寫，先手動）
+
+複製檔案：
+
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\.local\bin", "$HOME\.claude\hooks", "$HOME\.codex\hooks"
+Copy-Item installer\bin\ai-tab-sync.ps1, installer\bin\myclaude.ps1, installer\bin\mycodex.ps1 "$HOME\.local\bin\"
+Copy-Item installer\hooks\set-session-name.ps1, installer\hooks\session-auto-namer.ps1 "$HOME\.claude\hooks\"
+Copy-Item installer\hooks\codex-session-namer.ps1 "$HOME\.codex\hooks\"
+```
+
+`$PROFILE.CurrentUserAllHosts` 加 wrapper function：
+
+```powershell
+function myclaude { & "$HOME\.local\bin\myclaude.ps1" @args }
+function mycodex  { & "$HOME\.local\bin\mycodex.ps1"  @args }
+```
+
+`~/.claude/settings.json` 註冊 hook（`PostToolUse` 與 `UserPromptSubmit` 各一組，`timeout: 3`）：
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\<you>\.claude\hooks\session-auto-namer.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\<you>\.claude\hooks\session-auto-namer.ps1" prompt
+```
+
+`~/.codex/hooks.json` 同理指向 `codex-session-namer.ps1`。
+
+`-ExecutionPolicy Bypass` 是必要的：預設 RemoteSigned 會擋掉未簽章腳本。
+
+## 待在 Windows VM 驗的事（本批程式碼尚未實機跑過）
+
+跑 `docs\spikes\windows-tab-title\verify-powershell-runtime.ps1`，
+在 **Windows Terminal × PS5.1** 與 **× PS7** 各跑一次，把總結表貼回這裡。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File docs\spikes\windows-tab-title\verify-powershell-runtime.ps1
+pwsh       -NoProfile -ExecutionPolicy Bypass -File docs\spikes\windows-tab-title\verify-powershell-runtime.ps1
+```
+
+| # | 驗什麼 | 為什麼會怕 |
+|---|---|---|
+| T1 | 六支腳本語法 parse | 全部沒在任何 PowerShell 上跑過 |
+| T2 | 每支都有 UTF-8 BOM | 沒 BOM → 5.1 把中文讀成亂碼 |
+| T3 | 中文字面值讀進來沒亂碼 | T2 的實際後果 |
+| T4 | 程序祖先鏈（記錄用） | 決定 `Get-ParentPid $PID` 拿到的是不是 claude 本身 |
+| T5 | `\\.\CONOUT$` 在 stdout 被導向時仍改得到 tab | spike 只驗過共用 console 的程序，沒驗 stdout 被收走的 hook |
+| T6 | watcher 全鏈 + 孤兒自清 | emoji/中文顯示、父程序死後不留殘留程序 |
+| T7 | emoji 走命令列傳給 `powershell.exe` | 模型實際呼叫 `set-session-name.ps1` 的形式 |
+| T8 | namer 吐的 JSON 合法且中文完整 | 5.1 與 7 的 stdout 編碼不同 |
+| T9 | `py -` 跑 SQLite UPDATE | Windows 沒有保證的 `sqlite3.exe` |
+
+T4 拿錯 pid 的後果有限：**只會讓 `~/.claude/session-names/*.txt` 記到錯的檔名，
+不影響 tab 改名**（OSC 走 console 裝置，不靠 pid）。
+
+T5 若 FAIL，hook 的無 wrapper 路徑要換寫法（但走 `myclaude` wrapper 的主路徑不受影響）。

@@ -1,0 +1,124 @@
+﻿#!/usr/bin/env pwsh
+# session-auto-namer.ps1 — Windows counterpart of session-auto-namer.sh.
+# Session auto-namer for Claude Code. Registered on two hook events:
+#   UserPromptSubmit ("prompt" arg) → prompt#1: ask the model to name the
+#     session from the user's first message
+#   PostToolUse (no arg) → count=5: re-evaluate the name against the
+#     conversation so far; every 10 calls after that: retry if no AI name landed
+#
+# Display paths (in priority order):
+#   1. $env:AI_TAB_SYNC_FILE set (launched via the myclaude wrapper) → watcher
+#      owns the tab
+#   2. no wrapper → this hook refreshes the tab title by writing OSC to the
+#      console device on every event. Requires
+#      CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 so the built-in title doesn't fight back.
+
+[CmdletBinding()]
+param([string]$EventName = 'tool')
+
+$ErrorActionPreference = 'Continue'
+
+function Get-ParentPid([int]$ProcessId) {
+  if ($ProcessId -le 0) { return 0 }
+  try {
+    $p = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop
+    return [int]$p.ParentProcessId
+  } catch { return 0 }
+}
+
+function Write-ConsoleTitle([string]$Text) {
+  $payload = ([char]27) + "]0;$Text" + ([char]7)
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+  # CONOUT$ is Windows' /dev/tty analogue: hook stdout is a pipe Claude Code
+  # captures, so OSC written there never reaches the terminal.
+  try {
+    $fs = [System.IO.File]::Open('\\.\CONOUT$', [System.IO.FileMode]::Open,
+                                 [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+    try { $fs.Write($bytes, 0, $bytes.Length); $fs.Flush() } finally { $fs.Dispose() }
+    return
+  } catch {}
+  try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
+  try { [Console]::Write($payload) } catch {}
+}
+
+function Read-Counter([string]$Path) {
+  try { return [int]([System.IO.File]::ReadAllText($Path).Trim()) } catch { return 0 }
+}
+
+function Write-Counter([string]$Path, [int]$Value) {
+  try { [System.IO.File]::WriteAllText($Path, "$Value") } catch {}
+}
+
+# The bash version reads $PPID, which Claude Code sets to itself. PowerShell has
+# no $PPID, so walk one level up from this hook process. If Claude Code ever
+# spawns hooks through an extra shell layer this lands one level short — that
+# only misfiles the session-names record, it does not affect the tab title.
+$claudePid = Get-ParentPid $PID
+
+$counterDir = Join-Path ([System.IO.Path]::GetTempPath()) 'claude-session-namer'
+New-Item -ItemType Directory -Force -Path $counterDir | Out-Null
+
+# Terminal shell PID (claude's parent) keys the session-name file
+$terminalPid = Get-ParentPid $claudePid
+$sessionFile = Join-Path $HOME ".claude\session-names\$terminalPid.txt"
+$defaultMarker = Join-Path $counterDir "$claudePid.default"
+
+# No-wrapper display path: refresh tab title from the saved name on every event.
+# Claude Code strips ESC bytes from tool stdout, so OSC must go to the device.
+if (-not $env:AI_TAB_SYNC_FILE) {
+  if (Test-Path -LiteralPath $sessionFile) {
+    $saved = ''
+    try { $saved = [System.IO.File]::ReadAllText($sessionFile, [System.Text.Encoding]::UTF8).Trim() } catch {}
+    if ($saved) { Write-ConsoleTitle $saved }
+  }
+}
+
+# One wrapper script does all naming writes (tab-sync file / OSC + session-name
+# file + default-marker cleanup), so one whitelist rule covers it. The agent pid
+# is baked in literally — the model must not re-derive it in its own shell, which
+# sits a process layer deeper.
+$setNamePath = Join-Path $HOME '.claude\hooks\set-session-name.ps1'
+$writeCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$setNamePath`" '{名稱}' $claudePid"
+
+$rules = @(
+  '命名規則：'
+  '- 格式：{emoji} {中文敘述}，emoji 取代英文動詞，技術名詞可保留英文'
+  '- 總長度 ≤ 40 字元'
+  '- emoji 只能從這 8 個選：🏗️ build/implement/refactor、🔧 fix、🐛 debug、📐 plan/design、📋 review/audit、💬 discuss、⛴️ pilot/spike、🔍 research'
+) -join "`n"
+
+function Send-NamingRequest([string]$HookEventName, [string]$LeadIn) {
+  $ctx = "[session-namer] $LeadIn`n`n$rules`n`n執行指令：`n$writeCmd"
+  $json = @{ hookSpecificOutput = @{ hookEventName = $HookEventName; additionalContext = $ctx } } |
+          ConvertTo-Json -Depth 5 -Compress
+  # Write bytes directly: PowerShell 7 emits raw UTF-8 while 5.1 escapes
+  # non-ASCII, and the default stdout encoding differs between them.
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+  $stdout = [Console]::OpenStandardOutput()
+  $stdout.Write($bytes, 0, $bytes.Length)
+  $stdout.Flush()
+}
+
+# UserPromptSubmit: name the session right after the user's first message
+if ($EventName -eq 'prompt') {
+  $promptFile = Join-Path $counterDir "$claudePid.prompts"
+  $pcount = (Read-Counter $promptFile) + 1
+  Write-Counter $promptFile $pcount
+  if ($pcount -eq 1) {
+    New-Item -ItemType File -Force -Path $defaultMarker | Out-Null
+    Send-NamingRequest 'UserPromptSubmit' '請依據用戶這句話的任務意圖為此 session 命名並寫入檔案。'
+  }
+  exit 0
+}
+
+# PostToolUse: count tool calls
+$counterFile = Join-Path $counterDir "$claudePid"
+$count = (Read-Counter $counterFile) + 1
+Write-Counter $counterFile $count
+
+if ($count -eq 5) {
+  # One-time re-evaluation now that there is real conversation to judge from
+  Send-NamingRequest 'PostToolUse' '請根據到目前為止的討論重新評估 session 名稱：若現有名稱仍準確，用原名稱再執行一次指令即可；否則換更貼切的名字。'
+} elseif ($count -gt 5 -and ($count % 10) -eq 0 -and (Test-Path -LiteralPath $defaultMarker)) {
+  Send-NamingRequest 'PostToolUse' '此 session 尚未命名，請為它命名並寫入檔案。'
+}
