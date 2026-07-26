@@ -11,7 +11,8 @@
 #>
 
 $ErrorActionPreference = 'Continue'
-$repo = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSCommandPath))
+# 本檔在 <repo>\docs\spikes\windows-tab-title\ 底下，往上三層才是 repo 根目錄
+$repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $results = [ordered]@{}
 
 function Show-Header($id, $title) {
