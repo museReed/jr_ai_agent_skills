@@ -19,10 +19,13 @@ function Show-Header($id, $title) {
   Write-Host ""
   Write-Host "======== $id : $title ========" -ForegroundColor Cyan
 }
+# $ok = $null 代表 SKIP：環境沒裝東西，不是程式碼壞了。不併進 PASS，
+# 否則就是拿綠燈蓋掉「這題根本沒驗到」。
 function Set-Result($id, $ok, $note = '') {
   $results[$id] = @{ ok = $ok; note = $note }
-  $color = if ($ok) { 'Green' } else { 'Red' }
-  Write-Host ("  => {0} {1}" -f $(if ($ok) { 'PASS' } else { 'FAIL' }), $note) -ForegroundColor $color
+  $label = if ($null -eq $ok) { 'SKIP' } elseif ($ok) { 'PASS' } else { 'FAIL' }
+  $color = if ($null -eq $ok) { 'Yellow' } elseif ($ok) { 'Green' } else { 'Red' }
+  Write-Host ("  => {0} {1}" -f $label, $note) -ForegroundColor $color
 }
 function Ask-Eye($id, $question) {
   $answer = Read-Host "  $question (y/n)"
@@ -211,13 +214,19 @@ Remove-Item (Join-Path ([System.IO.Path]::GetTempPath()) 'claude-session-namer')
 
 # ---- T9: codex namer 的 Python + SQLite 路徑 ----
 Show-Header T9 'codex namer：Python + SQLite'
+# 與 codex-session-namer.ps1 同一套偵測：PATH 上有 python3.exe 不代表有 Python，
+# Windows 的 Store 假殼同名同資料夾，只有真的跑一次 --version 才分得出來。
 $py = $null
 foreach ($c in 'py', 'python3', 'python') {
   $cmd = Get-Command $c -ErrorAction SilentlyContinue
-  if ($cmd) { $py = $cmd.Source; break }
+  if (-not $cmd) { continue }
+  $ver = ''
+  try { $ver = (& $cmd.Source '--version' 2>&1) -join ' ' } catch {}
+  Write-Host "  試 $c → $($cmd.Source)：$($ver -replace '\s+$', '')"
+  if ($ver -match 'Python 3') { $py = $cmd.Source; break }
 }
-Write-Host "  Python：$(if ($py) { $py } else { '找不到' })"
-$ok9 = $false; $note9 = '沒有 Python'
+Write-Host "  採用：$(if ($py) { $py } else { '沒有可用的 Python' })"
+$ok9 = $null; $note9 = '本機沒有可用的 Python → codex sidebar 改名這條沒驗到（tab 標題不受影響）'
 if ($py) {
   # 拿一個拋棄式 db 驗 UPDATE 走得通、emoji 進得去
   $tmpDb = Join-Path $env:TEMP 'verify-codex-state.sqlite'
@@ -254,12 +263,17 @@ Write-Host "======== 總結（貼回 handoff / issue）========" -ForegroundColo
 Write-Host "PSVersion: $($PSVersionTable.PSVersion)"
 foreach ($k in $results.Keys) {
   $r = $results[$k]
-  Write-Host ("{0,-4} {1,-5} {2}" -f $k, $(if ($r.ok) { 'PASS' } else { 'FAIL' }), $r.note)
+  $label = if ($null -eq $r.ok) { 'SKIP' } elseif ($r.ok) { 'PASS' } else { 'FAIL' }
+  Write-Host ("{0,-4} {1,-5} {2}" -f $k, $label, $r.note)
 }
-$failed = @($results.Keys | Where-Object { -not $results[$_].ok })
+$failed = @($results.Keys | Where-Object { $null -ne $results[$_].ok -and -not $results[$_].ok })
+$skipped = @($results.Keys | Where-Object { $null -eq $results[$_].ok })
 Write-Host ""
 if ($failed.Count -eq 0) {
-  Write-Host '全數通過。' -ForegroundColor Green
+  Write-Host '沒有 FAIL。' -ForegroundColor Green
 } else {
   Write-Host "未通過：$($failed -join ', ')" -ForegroundColor Red
+}
+if ($skipped.Count -gt 0) {
+  Write-Host "略過（環境沒裝，非程式碼問題）：$($skipped -join ', ')" -ForegroundColor Yellow
 }

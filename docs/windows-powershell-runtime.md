@@ -27,7 +27,7 @@ IDE 整合終端不支援，也不打算支援。
 | 沒有 `/dev/tty` | 背景程序 `printf` OSC 到 tty device | watcher 共用 console → `[Console]::Write` 寫 OSC；hook 的 stdout 被收走，改用 `SetConsoleTitle`（`[Console]::Title`）完全繞過 stdout |
 | 沒有 `$PPID` | hook 直接讀 `$PPID` | `Get-CimInstance Win32_Process` 往上找 parent |
 | 背景程序不隨父程序死 | `trap` 裡 `kill` | 同樣在 `finally` 殺，另加 watcher 自檢父 pid 消失就退出，避免孤兒 |
-| 沒有保證的 `sqlite3.exe` | `sqlite3` CLI | Python stdlib `sqlite3`（`py` → `python3` → `python`） |
+| 沒有保證的 `sqlite3.exe` | `sqlite3` CLI | Python stdlib `sqlite3`；偵測要**實跑 `--version`**，PATH 上有 `python3.exe` 不代表有 Python（見下） |
 | `.ps1` 不能直接當 PATH 指令 | `myclaude` 可執行檔 | `$PROFILE` 裡包 function（見下） |
 | CJK / emoji 編碼 | 天生 UTF-8 | 明設 `UTF8Encoding($false)` 讀寫檔與 console；hook JSON 直接寫 bytes |
 
@@ -39,6 +39,20 @@ PowerShell 7 兩種都吃，所以帶 BOM 是唯一同時相容的存法。
 
 六支腳本目前全部帶 BOM。**後續編輯時別讓編輯器把 BOM 拿掉**——
 驗證腳本的 T2 就是在守這件事。
+
+### ⚠️ Windows 的 `python3.exe` 可能是 Microsoft Store 假殼
+
+乾淨的 Windows 11 在 `%LOCALAPPDATA%\Microsoft\WindowsApps\` 放了 `python3.exe`
+與 `python.exe` 兩個轉址殼，跑起來只會印
+「Python was not found; run without arguments to install from the Microsoft Store」。
+`Get-Command python3` 找得到它，所以**光看 PATH 會誤判成裝了 Python**。
+
+真的從 Store 安裝 Python 時，執行檔在同一個資料夾、同樣的檔名 —— 靠路徑分不出真假，
+只能實跑 `--version` 看有沒有印出 `Python 3`。`codex-session-namer.ps1` 就是這樣做的。
+
+Python 只影響 **Codex 的 sidebar 改名**（要寫 `state_*.sqlite`）。
+沒有 Python 時 hook 會在 stderr 說一聲然後跳過，**tab 標題照常運作**。
+Claude Code 那條完全不需要 Python。
 
 ## 安裝（PowerShell installer 尚未寫，先手動）
 
@@ -107,3 +121,14 @@ T1/T2/T3/T4/T6/T6b PASS —— 語法、BOM、中文字面值、watcher 全鏈�
 
 連帶：`session-auto-namer.ps1` **刻意不留 OSC 寫 stdout 的後備**——它的 stdout 是
 hook 的 JSON 通道，混進 escape 會把 payload 弄壞。寧可標題沒改，不要 payload 壞掉。
+
+### 第二輪 VM 結果（2026-07-27，同機）
+
+T1–T8 全 PASS，含改用 `SetConsoleTitle` 後的 T5、emoji 走命令列的 T7、
+hook JSON 通道的 T8。
+
+**T9 暴露真 bug**：偵測到的 `python3.exe` 是 Store 假殼，`codex-session-namer.ps1`
+會挑中它然後靜默失敗。改成實跑 `--version` 驗證，並在沒有 Python 時於 stderr 明講。
+
+**Claude Code 那條路徑（tab 命名主線）在 PS 5.1 上已完整驗證通過。**
+Codex sidebar 改名待一台有真 Python 的機器補驗。

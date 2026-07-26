@@ -40,12 +40,19 @@ function Write-Counter([string]$Path, [int]$Value) {
   try { [System.IO.File]::WriteAllText($Path, "$Value") } catch {}
 }
 
-# `py` first: the bare `python` on PATH is often the Microsoft Store stub that
-# opens the Store instead of running anything.
+# Presence on PATH proves nothing: Windows ships stub python3.exe / python.exe
+# under WindowsApps that only print "Python was not found; run without arguments
+# to install from the Microsoft Store". A real Store install uses the same folder
+# and the same names, so path filtering can't tell them apart — the only reliable
+# test is running it. Cheap enough: this is reached only when a name is pending,
+# not on every hook event.
 function Get-PythonPath {
   foreach ($candidate in 'py', 'python3', 'python') {
     $cmd = Get-Command $candidate -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
+    if (-not $cmd) { continue }
+    $ver = ''
+    try { $ver = (& $cmd.Source '--version' 2>&1) -join ' ' } catch {}
+    if ($ver -match 'Python 3') { return $cmd.Source }
   }
   return $null
 }
@@ -79,6 +86,12 @@ function Set-SessionName([string]$Name) {
   $db = Get-ChildItem -LiteralPath (Join-Path $HOME '.codex') -Filter 'state_*.sqlite' -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
   $py = Get-PythonPath
+  if ($sessionId -and $db -and -not $py) {
+    # Tab title still works (sync file below); only the sidebar name is lost.
+    # Say so on stderr rather than failing silently — hook stdout is the JSON
+    # channel and must stay clean.
+    [Console]::Error.WriteLine('[codex-session-namer] 找不到可用的 Python，跳過 sidebar 改名（tab 標題不受影響）。')
+  }
   if ($sessionId -and $db -and $py) {
     # Name travels via env (Windows env is UTF-16, so emoji survive) and binds as
     # a SQL parameter — no quote escaping needed.
