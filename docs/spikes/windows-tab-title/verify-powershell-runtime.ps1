@@ -101,31 +101,30 @@ Write-Host "  ↑ 這是「直接跑腳本」的鏈。真正要看的是 Claude 
 Write-Host "    等 hook 裝好後看 ~/.claude/session-names/ 裡的檔名 pid 對不對得上 terminal。"
 Set-Result T4 $true '僅記錄，無自動判定'
 
-# ---- T5: \\.\CONOUT$ 在 stdout 被導向時還改得到 tab ----
-# 這是 hook 路徑的關鍵：hook 的 stdout 是 pipe，OSC 必須繞過它直達 console 裝置。
-Show-Header T5 'CONOUT$（stdout 被導向）'
-$conoutProbe = Join-Path $env:TEMP 'verify-conout.ps1'
-@'
-$payload = ([char]27) + "]0;T5-CONOUT-驗證" + ([char]7)
-$bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
-$fs = [System.IO.File]::Open('\\.\CONOUT$', [System.IO.FileMode]::Open,
-                             [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
-try { $fs.Write($bytes, 0, $bytes.Length); $fs.Flush() } finally { $fs.Dispose() }
-"CONOUT-OPENED-OK"
-'@ | Set-Content -LiteralPath $conoutProbe -Encoding UTF8
-$probeOut = Join-Path $env:TEMP 'verify-conout.out'
+# ---- T5: stdout 被導向時還改不改得到 tab ----
+# 這是 hook 路徑的關鍵：hook 的 stdout 被 Claude Code 收走，改 tab 不能經過它。
+# 第一輪驗證證實寫 OSC 進 \\.\CONOUT$ 開得起來但沒作用，改用 SetConsoleTitle
+# （[Console]::Title）。這裡兩條都測，順便留下 CONOUT$ 的紀錄。
+Show-Header T5 'SetConsoleTitle（stdout 被導向）'
 $shell = (Get-Process -Id $PID).ProcessName
+$titleProbe = Join-Path $env:TEMP 'verify-title.ps1'
+@'
+$ok = 'NONE'
+try { [Console]::Title = 'T5-SETTITLE-驗證'; $ok = 'SETTITLE-OK' } catch { $ok = "SETTITLE-FAIL $_" }
+"$ok"
+'@ | Set-Content -LiteralPath $titleProbe -Encoding UTF8
+$probeOut = Join-Path $env:TEMP 'verify-title.out'
 # stdout 導到檔案 = 模擬 hook 被 Claude Code 收走 stdout 的情形
 Start-Process -FilePath $shell -NoNewWindow -Wait -RedirectStandardOutput $probeOut `
-  -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $conoutProbe
-$opened = (Get-Content -Raw -ErrorAction SilentlyContinue $probeOut) -match 'CONOUT-OPENED-OK'
-Write-Host "  CONOUT$ 開啟成功：$opened"
-if (-not $opened) {
-  Set-Result T5 $false 'CONOUT$ 開不起來 → hook 路徑要改別的寫法'
+  -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $titleProbe
+$probeMsg = (Get-Content -Raw -ErrorAction SilentlyContinue $probeOut)
+Write-Host "  子程序回報：$($probeMsg -replace '\s+$', '')"
+if ($probeMsg -notmatch 'SETTITLE-OK') {
+  Set-Result T5 $false 'SetConsoleTitle 就丟例外 → hook 路徑要再想'
 } else {
-  Ask-Eye T5 'tab 標題有變成「T5-CONOUT-驗證」嗎？'
+  Ask-Eye T5 'tab 標題有變成「T5-SETTITLE-驗證」嗎？'
 }
-Remove-Item $conoutProbe, $probeOut -Force -ErrorAction SilentlyContinue
+Remove-Item $titleProbe, $probeOut -Force -ErrorAction SilentlyContinue
 
 # ---- T6: watcher 全鏈（emoji + 中文 + 孤兒自清）----
 Show-Header T6 'ai-tab-sync watcher'
@@ -165,9 +164,11 @@ $inProc = ($syncBack -eq $testName)
 
 # 再走一次「模型實際會用的形式」：另一個 powershell.exe 帶命令列參數
 $env:AI_TAB_SYNC_FILE = Join-Path $env:TEMP 'verify-setname-cli.txt'
+# 引號要自己加：PS 5.1 的 Start-Process 不會替含空白的陣列元素補引號，
+# 名字會被拆成兩個參數（第二段還會綁進 [int]$AgentPid 而失敗）。
 Start-Process -FilePath 'powershell' -NoNewWindow -Wait -ArgumentList @(
   '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
-  (Join-Path $repo 'installer\hooks\set-session-name.ps1'), $testName, "$PID"
+  "`"$(Join-Path $repo 'installer\hooks\set-session-name.ps1')`"", "`"$testName`"", "$PID"
 )
 $cliBack = ''
 try { $cliBack = [System.IO.File]::ReadAllText($env:AI_TAB_SYNC_FILE, [System.Text.Encoding]::UTF8) } catch {}
@@ -195,6 +196,14 @@ if ($raw) {
     Write-Host "  additionalContext 前 120 字：$($ctx.Substring(0, [Math]::Min(120, $ctx.Length)))"
   } catch { $note8 = "JSON parse 失敗：$($_.Exception.Message)" }
 }
+if (-not $ok8) {
+  # 光看「parse 失敗」猜不出前面混進了什麼，把原始 bytes 攤開來看
+  Write-Host '  --- stdout 原始內容（前 200 字元 + 前 32 bytes）---' -ForegroundColor Yellow
+  Write-Host "  [$($raw.Substring(0, [Math]::Min(200, $raw.Length)))]"
+  $rawBytes = @()
+  try { $rawBytes = [System.IO.File]::ReadAllBytes($namerOut) } catch {}
+  Write-Host "  hex: $(($rawBytes | Select-Object -First 32 | ForEach-Object { '{0:X2}' -f $_ }) -join ' ')"
+}
 Set-Result T8 $ok8 $note8
 Remove-Item $namerOut -Force -ErrorAction SilentlyContinue
 # 清掉本次測試留下的計數器，免得干擾真實 session
@@ -216,6 +225,9 @@ if ($py) {
   $env:CODEX_DB = $tmpDb
   $env:CODEX_SID = 'verify-sid'
   $env:CODEX_TITLE = '📐 codex 命名測試'
+  # 比對在 Python 裡做完只印 ASCII：stdout 是 pipe 時 Python 用系統 locale 編碼
+  # （zh-TW 是 cp950），直接 print emoji 會 UnicodeEncodeError，測到的是 Python
+  # 的輸出編碼而不是 SQLite 往返。
   $setup = @'
 import os, sqlite3
 con = sqlite3.connect(os.environ["CODEX_DB"])
@@ -224,12 +236,13 @@ con.execute("INSERT INTO threads VALUES ('verify-sid', 'old', 'old')")
 con.execute("UPDATE threads SET title=?, preview=? WHERE id=?",
             (os.environ["CODEX_TITLE"], os.environ["CODEX_TITLE"], os.environ["CODEX_SID"]))
 con.commit()
-print(con.execute("SELECT title FROM threads WHERE id='verify-sid'").fetchone()[0])
+got = con.execute("SELECT title FROM threads WHERE id='verify-sid'").fetchone()[0]
+print("ROUNDTRIP-OK" if got == os.environ["CODEX_TITLE"] else "MISMATCH")
 con.close()
 '@
-  $back = ($setup | & $py -) 2>$null
-  Write-Host "  SQLite 讀回：[$back]"
-  $ok9 = ($back -eq $env:CODEX_TITLE)
+  $back = ($setup | & $py - 2>&1) -join ''
+  Write-Host "  Python 回報：[$back]"
+  $ok9 = ($back -match 'ROUNDTRIP-OK')
   $note9 = "UPDATE + emoji 往返=$ok9"
   Remove-Item $tmpDb -Force -ErrorAction SilentlyContinue
 }

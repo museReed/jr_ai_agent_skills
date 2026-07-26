@@ -30,20 +30,15 @@ function Get-ParentPid([int]$ProcessId) {
 }
 
 function Write-ConsoleTitle([string]$Text) {
-  $payload = ([char]27) + "]0;$Text" + ([char]7)
-  $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
-  # CONOUT$ is Windows' /dev/tty analogue and the reason this works at all: hook
-  # stdout is a pipe Claude Code captures, so OSC written there never reaches
-  # the terminal. Opening the console device writes past the pipe.
-  try {
-    $fs = [System.IO.File]::Open('\\.\CONOUT$', [System.IO.FileMode]::Open,
-                                 [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
-    try { $fs.Write($bytes, 0, $bytes.Length); $fs.Flush() } finally { $fs.Dispose() }
-    return
-  } catch {}
-  # Fallback for hosts that refuse the device path (stdout must be the console).
+  # SetConsoleTitle, not OSC. A hook's stdout is a pipe Claude Code captures, so
+  # OSC written there never reaches the terminal — and VM verification (T5)
+  # showed OSC written to the \\.\CONOUT$ device opens fine but retitles nothing.
+  # [Console]::Title goes through SetConsoleTitle instead, which bypasses stdout
+  # entirely and works cross-process (spike TEST 1/4).
+  try { [Console]::Title = $Text; return } catch {}
+  # Fallback for hosts without a console title (stdout must be the console).
   try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
-  try { [Console]::Write($payload) } catch {}
+  try { [Console]::Write(([char]27) + "]0;$Text" + ([char]7)) } catch {}
 }
 
 if ($AgentPid -le 0) { $AgentPid = Get-ParentPid $PID }

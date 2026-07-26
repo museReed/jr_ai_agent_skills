@@ -27,18 +27,12 @@ function Get-ParentPid([int]$ProcessId) {
 }
 
 function Write-ConsoleTitle([string]$Text) {
-  $payload = ([char]27) + "]0;$Text" + ([char]7)
-  $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
-  # CONOUT$ is Windows' /dev/tty analogue: hook stdout is a pipe Claude Code
-  # captures, so OSC written there never reaches the terminal.
-  try {
-    $fs = [System.IO.File]::Open('\\.\CONOUT$', [System.IO.FileMode]::Open,
-                                 [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
-    try { $fs.Write($bytes, 0, $bytes.Length); $fs.Flush() } finally { $fs.Dispose() }
-    return
-  } catch {}
-  try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
-  try { [Console]::Write($payload) } catch {}
+  # SetConsoleTitle, not OSC — see set-session-name.ps1 for why: a hook's stdout
+  # is a captured pipe, and OSC to \\.\CONOUT$ opens but retitles nothing (T5).
+  # Writing the OSC fallback below into a captured stdout would also corrupt the
+  # JSON this hook emits, so there is deliberately no stdout fallback here: a
+  # missing title beats a corrupted hook payload.
+  try { [Console]::Title = $Text } catch {}
 }
 
 function Read-Counter([string]$Path) {

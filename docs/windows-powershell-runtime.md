@@ -24,7 +24,7 @@ IDE 整合終端不支援，也不打算支援。
 
 | 差異 | bash 做法 | Windows 做法 |
 |---|---|---|
-| 沒有 `/dev/tty` | 背景程序 `printf` OSC 到 tty device | watcher 共用 console → `[Console]::Write`；hook 的 stdout 是 pipe，改開 console 裝置 `\\.\CONOUT$` |
+| 沒有 `/dev/tty` | 背景程序 `printf` OSC 到 tty device | watcher 共用 console → `[Console]::Write` 寫 OSC；hook 的 stdout 被收走，改用 `SetConsoleTitle`（`[Console]::Title`）完全繞過 stdout |
 | 沒有 `$PPID` | hook 直接讀 `$PPID` | `Get-CimInstance Win32_Process` 往上找 parent |
 | 背景程序不隨父程序死 | `trap` 裡 `kill` | 同樣在 `finally` 殺，另加 watcher 自檢父 pid 消失就退出，避免孤兒 |
 | 沒有保證的 `sqlite3.exe` | `sqlite3` CLI | Python stdlib `sqlite3`（`py` → `python3` → `python`） |
@@ -85,7 +85,7 @@ pwsh       -NoProfile -ExecutionPolicy Bypass -File docs\spikes\windows-tab-titl
 | T2 | 每支都有 UTF-8 BOM | 沒 BOM → 5.1 把中文讀成亂碼 |
 | T3 | 中文字面值讀進來沒亂碼 | T2 的實際後果 |
 | T4 | 程序祖先鏈（記錄用） | 決定 `Get-ParentPid $PID` 拿到的是不是 claude 本身 |
-| T5 | `\\.\CONOUT$` 在 stdout 被導向時仍改得到 tab | spike 只驗過共用 console 的程序，沒驗 stdout 被收走的 hook |
+| T5 | `SetConsoleTitle` 在 stdout 被導向時仍改得到 tab | spike 只驗過共用 console 的程序，沒驗 stdout 被收走的 hook |
 | T6 | watcher 全鏈 + 孤兒自清 | emoji/中文顯示、父程序死後不留殘留程序 |
 | T7 | emoji 走命令列傳給 `powershell.exe` | 模型實際呼叫 `set-session-name.ps1` 的形式 |
 | T8 | namer 吐的 JSON 合法且中文完整 | 5.1 與 7 的 stdout 編碼不同 |
@@ -95,3 +95,15 @@ T4 拿錯 pid 的後果有限：**只會讓 `~/.claude/session-names/*.txt` 記�
 不影響 tab 改名**（OSC 走 console 裝置，不靠 pid）。
 
 T5 若 FAIL，hook 的無 wrapper 路徑要換寫法（但走 `myclaude` wrapper 的主路徑不受影響）。
+
+### 第一輪 VM 結果（2026-07-27，Windows Terminal × PS 5.1.26100）
+
+T1/T2/T3/T4/T6/T6b PASS —— 語法、BOM、中文字面值、watcher 全鏈（emoji + 中文）、
+孤兒自清全數過關。
+
+**T5 FAIL 改動了設計**：`\\.\CONOUT$` 開得起來，但把 OSC 寫進去**不會改到 tab**。
+`/dev/tty` 的類比只成立到「開得起來」為止。改用 `SetConsoleTitle`（`[Console]::Title`），
+它不經 stdout，spike TEST 1/4 已證實跨程序有效。
+
+連帶：`session-auto-namer.ps1` **刻意不留 OSC 寫 stdout 的後備**——它的 stdout 是
+hook 的 JSON 通道，混進 escape 會把 payload 弄壞。寧可標題沒改，不要 payload 壞掉。
