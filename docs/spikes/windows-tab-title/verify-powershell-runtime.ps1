@@ -43,6 +43,18 @@ $targets = @(
   'installer\hooks\codex-session-namer.ps1'
 ) | ForEach-Object { Join-Path $repo $_ }
 
+# T0：檔案不在就直接停。檔案讀不到時後面每一題都會倒，而且倒的理由是假的
+# （T2 甚至會因為例外打斷迴圈而報綠燈）——寧可在這裡吵，不要跑完一輪騙人的表。
+$missing = @($targets | Where-Object { -not (Test-Path -LiteralPath $_) })
+if ($missing) {
+  Write-Host ""
+  Write-Host "腳本找不到，先確認 repo 根目錄算對了：" -ForegroundColor Red
+  Write-Host "  推算的 repo 根目錄：$repo"
+  $missing | ForEach-Object { Write-Host "  缺：$_" }
+  Write-Host "  （若路徑裡多了一層 docs\，代表你跑的是舊版腳本，git pull 後重跑）" -ForegroundColor Yellow
+  exit 1
+}
+
 # ---- T1: 六支腳本語法都 parse 得過 ----
 Show-Header T1 '語法 parse'
 $badSyntax = @()
@@ -61,8 +73,12 @@ Set-Result T1 ($badSyntax.Count -eq 0) $(if ($badSyntax) { "壞掉：$($badSynta
 Show-Header T2 'UTF-8 BOM'
 $noBom = @()
 foreach ($t in $targets) {
-  $head = [System.IO.File]::ReadAllBytes($t)[0..2]
-  if (-not ($head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF)) { $noBom += (Split-Path -Leaf $t) }
+  # try 包住：讀不到時若讓例外逸出，整個迴圈會斷在第一支，$noBom 停在空的 → 假 PASS
+  $head = $null
+  try { $head = [System.IO.File]::ReadAllBytes($t)[0..2] } catch {}
+  if (-not ($head -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF)) {
+    $noBom += (Split-Path -Leaf $t)
+  }
 }
 Set-Result T2 ($noBom.Count -eq 0) $(if ($noBom) { "缺 BOM：$($noBom -join ', ')" } else { '6/6 有 BOM' })
 
