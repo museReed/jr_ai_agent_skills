@@ -220,5 +220,28 @@ API 呼叫才可靠**。T5 是「寫進 CONOUT$ 沒作用」，這次是「被 T
   寫法（`mkdir -p /tmp/...` 加 `${PPID}`），且 relay 檔現在以 session_id 命名、
   模型推導不出來 → 改成指示模型沿用 hook 先前訊息給的路徑。
 
-未驗：上述修正的實機效果、`myclaude` wrapper 路徑在真實 session 裡的行為、
-Codex 的 sandbox 是否每次命名都要人工放行（若是，relay 檔落點要重選）。
+### 第六輪：光改機制還不夠，Codex 會把標題蓋回去
+
+改用 `SetConsoleTitle` 之後 tab 仍然不變。原因是 watcher 只跟**自己上次寫的值**比對：
+
+```powershell
+if ($title -ne $lastTitle) { [Console]::Title = $title }   # 寫一次就再也不寫
+```
+
+Codex 在我們設完之後把標題改掉，而 sync 檔沒變 → watcher 判定「沒事」→ 永遠不修復。
+
+**修法**：每次輪詢也跟**當下真實的 console title** 比對，不一致就重設。
+
+```powershell
+if ($title -ne $lastTitle -or $title -ne [Console]::Title) { [Console]::Title = $title }
+```
+
+**這條順帶決定了 IPC 的選型**：曾考慮把「檔案 + 每秒輪詢」換成 Named Pipe 做事件驅動。
+但「被蓋掉要救回來」**只有輪詢做得到** —— 事件驅動只在「有新名字」時觸發，
+標題事後被蓋掉不會產生任何事件。輪詢在這裡不是缺點，是唯一的修復機制。
+
+至此 Codex 這條線在 Windows 上跑通。
+
+未驗：`myclaude` wrapper 路徑在真實 session 裡的行為、直接跑 `codex`（無 wrapper）
+的 `SetConsoleTitle` 退路、Codex 的 sandbox 是否每次命名都要人工放行
+（若是，relay 檔落點要重選）。

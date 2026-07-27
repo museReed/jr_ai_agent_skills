@@ -37,7 +37,14 @@ while ($true) {
   if (Test-Path -LiteralPath $SyncFile) {
     $title = ''
     try { $title = [System.IO.File]::ReadAllText($SyncFile, [System.Text.Encoding]::UTF8).Trim() } catch {}
-    if ($title -and $title -ne $lastTitle) {
+    # Compare against the live console title, not just $lastTitle. Codex (and
+    # some terminal hosts) rewrite the title after we set it; tracking only our
+    # own last write means we set it once, get overwritten, and see "unchanged"
+    # forever after. Re-asserting each poll is what actually keeps the tab named
+    # — and it is the one thing an event-driven IPC could not do.
+    $consoleTitle = ''
+    try { $consoleTitle = [Console]::Title } catch {}
+    if ($title -and ($title -ne $lastTitle -or $title -ne $consoleTitle)) {
       try { [Console]::Title = $title } catch {}
       $lastTitle = $title
     }
