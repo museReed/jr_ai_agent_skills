@@ -131,4 +131,25 @@ hook JSON 通道的 T8。
 會挑中它然後靜默失敗。改成實跑 `--version` 驗證，並在沒有 Python 時於 stderr 明講。
 
 **Claude Code 那條路徑（tab 命名主線）在 PS 5.1 上已完整驗證通過。**
-Codex sidebar 改名待一台有真 Python 的機器補驗。
+
+### 第三輪：PS 7 全數通過（2026-07-27，同機，已補裝 Python 3.12）
+
+| 題 | WT × PS 5.1 (5.1.26100.8875) | WT × PS 7 (7.6.4) |
+|---|---|---|
+| T1 語法 parse | PASS | PASS |
+| T2 UTF-8 BOM | PASS | PASS |
+| T3 中文字面值 | PASS | PASS |
+| T4 程序祖先鏈 | 記錄 | 記錄 |
+| T5 SetConsoleTitle（stdout 被導向） | PASS | PASS |
+| T6 watcher 全鏈（emoji + 中文） | PASS | PASS |
+| T6b 孤兒自清 | PASS | PASS |
+| T7 emoji 走命令列 | PASS | PASS |
+| T8 hook JSON 通道 | PASS | PASS |
+| T9 Python + SQLite | SKIP（當時沒 Python） | PASS |
+
+**移植完成**：`ai-tab-sync` watcher + Claude/Codex 兩支命名 hook 在
+Windows Terminal × PS 5.1 / PS 7 皆驗證通過。
+
+未驗：`install.ps1`（尚未寫，目前靠本文件的手動安裝）、
+以及在真實 Claude Code / Codex session 裡的 end-to-end 行為
+（T4 的程序層數只有那時才看得到真值）。
