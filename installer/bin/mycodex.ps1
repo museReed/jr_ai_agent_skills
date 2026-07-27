@@ -15,8 +15,16 @@ param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CodexArgs)
 
 $ErrorActionPreference = 'Stop'
 
-$codexCmd = Get-Command codex -ErrorAction SilentlyContinue
-$codexBin = if ($codexCmd) { $codexCmd.Source } else { 'codex' }
+# -CommandType Application is load-bearing: the profile defines a `codex`
+# function that shadows the real binary, and a bare Get-Command would resolve to
+# that function and recurse forever. Only ever launch a real executable here.
+$codexCmd = Get-Command codex -CommandType Application -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+if (-not $codexCmd) {
+  Write-Error 'codex 執行檔不在 PATH 上，無法啟動。'
+  exit 127
+}
+$codexBin = $codexCmd.Source
 
 $watcher = Join-Path $HOME '.local\bin\ai-tab-sync.ps1'
 $syncDir = Join-Path $HOME '.ai-session-names'

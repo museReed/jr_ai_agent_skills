@@ -70,6 +70,21 @@ Copy-Item installer\hooks\codex-session-namer.ps1 "$HOME\.codex\hooks\"
 ```powershell
 function myclaude { & "$HOME\.local\bin\myclaude.ps1" @args }
 function mycodex  { & "$HOME\.local\bin\mycodex.ps1"  @args }
+function claude   { & "$HOME\.local\bin\myclaude.ps1" @args }
+function codex    { & "$HOME\.local\bin\mycodex.ps1"  @args }
+```
+
+`claude` / `codex` 被同名 function 遮蔽（PowerShell 解析順序 **function 先於
+application**），所以學生照常打 `claude` 就會走 wrapper，不必記 `myclaude`。
+
+⚠️ 因此 wrapper 內部**必須**用 `Get-Command <name> -CommandType Application`
+找真正的執行檔——少了 `-CommandType Application` 會解析到上面這個 function，
+變成無限遞迴。
+
+要繞過 wrapper 跑原生執行檔：
+
+```powershell
+& (Get-Command claude -CommandType Application).Source
 ```
 
 `~/.claude/settings.json` 註冊 hook（`PostToolUse` 與 `UserPromptSubmit` 各一組，`timeout: 3`）：

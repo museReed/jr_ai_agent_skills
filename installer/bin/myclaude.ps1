@@ -15,8 +15,16 @@ param([Parameter(ValueFromRemainingArguments = $true)][string[]]$ClaudeArgs)
 
 $ErrorActionPreference = 'Stop'
 
-$claudeCmd = Get-Command claude -ErrorAction SilentlyContinue
-$claudeBin = if ($claudeCmd) { $claudeCmd.Source } else { 'claude' }
+# -CommandType Application is load-bearing: the profile defines a `claude`
+# function that shadows the real binary, and a bare Get-Command would resolve to
+# that function and recurse forever. Only ever launch a real executable here.
+$claudeCmd = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue |
+             Select-Object -First 1
+if (-not $claudeCmd) {
+  Write-Error 'claude 執行檔不在 PATH 上，無法啟動。'
+  exit 127
+}
+$claudeBin = $claudeCmd.Source
 
 $watcher = Join-Path $HOME '.local\bin\ai-tab-sync.ps1'
 $syncDir = Join-Path $HOME '.ai-session-names'
