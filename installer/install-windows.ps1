@@ -158,16 +158,16 @@ if (Test-Path -LiteralPath $profilePath) {
 # .ps1 不在 PATHEXT 裡，所以不能直接當指令用，要用 function 包一層。
 # claude / codex 直接被同名 function 遮蔽（PowerShell 解析順序 function 先於
 # application），學生照常打 claude 就會走 wrapper，不必記 myclaude。
-# wrapper 內部用 Get-Command -CommandType Application 找真正的執行檔，
-# 否則會解析到這裡的 function 而無限遞迴。
+# wrapper 內部要過濾掉 function 才不會解析到這裡而無限遞迴，且必須連
+# ExternalScript 一起收——npm 把 claude 裝成 claude.ps1，不是 .exe。
 $block = @"
 # >>> jr_ai_agent_skills >>>
 function myclaude { & "`$HOME\.local\bin\myclaude.ps1" @args }
 function mycodex  { & "`$HOME\.local\bin\mycodex.ps1"  @args }
 function claude   { & "`$HOME\.local\bin\myclaude.ps1" @args }
 function codex    { & "`$HOME\.local\bin\mycodex.ps1"  @args }
-# 要繞過 wrapper 跑原生執行檔：
-#   & (Get-Command claude -CommandType Application).Source
+# 要繞過 wrapper 跑原生指令：
+#   & (Get-Command claude -All | Where-Object { `$_.CommandType -in 'Application','ExternalScript' } | Select-Object -First 1).Source
 # <<< jr_ai_agent_skills <<<
 "@
 # 整段換掉而不是「已存在就跳過」——舊安裝留下的舊 function 定義不會自己更新。

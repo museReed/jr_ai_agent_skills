@@ -15,13 +15,15 @@ param([Parameter(ValueFromRemainingArguments = $true)][string[]]$ClaudeArgs)
 
 $ErrorActionPreference = 'Stop'
 
-# -CommandType Application is load-bearing: the profile defines a `claude`
-# function that shadows the real binary, and a bare Get-Command would resolve to
-# that function and recurse forever. Only ever launch a real executable here.
-$claudeCmd = Get-Command claude -CommandType Application -ErrorAction SilentlyContinue |
+# The profile defines a `claude` function that shadows the real command, so a
+# bare Get-Command would resolve to that function and recurse forever. Filter to
+# what actually lives on disk — and accept ExternalScript, not just Application:
+# npm installs claude as claude.ps1, so an Application-only filter finds nothing.
+$claudeCmd = Get-Command claude -All -ErrorAction SilentlyContinue |
+             Where-Object { $_.CommandType -in 'Application', 'ExternalScript' } |
              Select-Object -First 1
 if (-not $claudeCmd) {
-  Write-Error 'claude 執行檔不在 PATH 上，無法啟動。'
+  Write-Error 'claude 不在 PATH 上（找不到執行檔或腳本），無法啟動。'
   exit 127
 }
 $claudeBin = $claudeCmd.Source

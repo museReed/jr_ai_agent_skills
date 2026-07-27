@@ -77,14 +77,20 @@ function codex    { & "$HOME\.local\bin\mycodex.ps1"  @args }
 `claude` / `codex` 被同名 function 遮蔽（PowerShell 解析順序 **function 先於
 application**），所以學生照常打 `claude` 就會走 wrapper，不必記 `myclaude`。
 
-⚠️ 因此 wrapper 內部**必須**用 `Get-Command <name> -CommandType Application`
-找真正的執行檔——少了 `-CommandType Application` 會解析到上面這個 function，
-變成無限遞迴。
-
-要繞過 wrapper 跑原生執行檔：
+⚠️ 因此 wrapper 內部**必須**過濾掉 function，否則會解析到自己、無限遞迴。
+但**不能只收 `Application`**——npm 把 `claude` 裝成 `claude.ps1`
+（`CommandType` 是 `ExternalScript`），只認執行檔會變成什麼都找不到：
 
 ```powershell
-& (Get-Command claude -CommandType Application).Source
+Get-Command claude -All |
+  Where-Object { $_.CommandType -in 'Application', 'ExternalScript' } |
+  Select-Object -First 1
+```
+
+要繞過 wrapper 跑原生指令，用同一條過濾：
+
+```powershell
+& (Get-Command claude -All | Where-Object { $_.CommandType -in 'Application','ExternalScript' } | Select-Object -First 1).Source
 ```
 
 `~/.claude/settings.json` 註冊 hook（`PostToolUse` 與 `UserPromptSubmit` 各一組，`timeout: 3`）：
