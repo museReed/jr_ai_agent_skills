@@ -177,4 +177,24 @@ tab 改名本來就不靠 pid（走 `SetConsoleTitle`），所以退化路徑只
 **教訓**：元件級 harness 驗不出「宿主怎麼 spawn 你」。T4 當初只印祖先鏈不判定，
 就是因為那時看不到真值——真值只有掛進真實 session 才會出現。
 
-未驗：`installer/install-windows.ps1` 本身、以及上述 `session_id` 修正的實機效果。
+**修正後複驗（同日）**：`installer/install-windows.ps1` 實機安裝成功，重跑真實
+session 後三點全部確認 ——
+
+- 第 5 次 tool call 的重評估**有觸發**（計數器不再每次寫新檔）
+- 紀錄檔名變成 session_id 的 UUID（`ded2e5c0-...txt`），不再有 `0.txt`
+- **tab 標題真的改成 `⛴️ 測試連續調用 10 次 TOOL`**，中文與 emoji 都正確
+
+至此 Claude Code 這條線在 Windows 上端到端跑通：hook 觸發 → 模型執行命名指令
+→ tab 改名。
+
+兩個實機觀察：
+
+- 這輪走的是**無 wrapper 路徑**（沒經 `myclaude`），`SetConsoleTitle` 照樣有效，
+  且 Claude Code 內建標題沒有蓋回來 —— 無 wrapper 時似乎不需要另外設
+  `CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1`。
+- 終端若以系統管理員身分執行，Windows 會在標題前插 `Administrator: `。
+  那是 console host 在我們寫入標題**之後**加的，無法從腳本移除；開一般視窗即可。
+  （Windows Terminal 的 `suppressApplicationTitle` 會連我們的標題一起擋掉，不要開。）
+
+未驗：`myclaude` wrapper 路徑在真實 session 裡的行為（harness T6 已驗過 watcher
+本身）、Codex 那條線的真實 session。
