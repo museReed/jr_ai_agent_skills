@@ -155,19 +155,31 @@ $profileText = ''
 if (Test-Path -LiteralPath $profilePath) {
   $profileText = [System.IO.File]::ReadAllText($profilePath, [System.Text.Encoding]::UTF8)
 }
-# .ps1 不在 PATHEXT 裡，所以不能直接當指令用，要用 function 包一層
+# .ps1 不在 PATHEXT 裡，所以不能直接當指令用，要用 function 包一層。
+# claude / codex 直接被同名 function 遮蔽（PowerShell 解析順序 function 先於
+# application），學生照常打 claude 就會走 wrapper，不必記 myclaude。
+# wrapper 內部要過濾掉 function 才不會解析到這裡而無限遞迴，且必須連
+# ExternalScript 一起收——npm 把 claude 裝成 claude.ps1，不是 .exe。
 $block = @"
 # >>> jr_ai_agent_skills >>>
 function myclaude { & "`$HOME\.local\bin\myclaude.ps1" @args }
 function mycodex  { & "`$HOME\.local\bin\mycodex.ps1"  @args }
+function claude   { & "`$HOME\.local\bin\myclaude.ps1" @args }
+function codex    { & "`$HOME\.local\bin\mycodex.ps1"  @args }
+# 要繞過 wrapper 跑原生指令：
+#   & (Get-Command claude -All | Where-Object { `$_.CommandType -in 'Application','ExternalScript' } | Select-Object -First 1).Source
 # <<< jr_ai_agent_skills <<<
 "@
-if ($profileText -notmatch '>>> jr_ai_agent_skills >>>') {
-  [System.IO.File]::WriteAllText($profilePath, ($profileText.TrimEnd() + "`n`n" + $block + "`n"), $utf8Bom)
-  Write-Host "  appended: $profilePath"
+# 整段換掉而不是「已存在就跳過」——舊安裝留下的舊 function 定義不會自己更新。
+$marker = '(?s)# >>> jr_ai_agent_skills >>>.*?# <<< jr_ai_agent_skills <<<'
+if ($profileText -match $marker) {
+  $profileText = [regex]::Replace($profileText, $marker, $block.Replace('$', '$$'))
+  Write-Host "  updated: $profilePath"
 } else {
-  Write-Host "  already present: $profilePath"
+  $profileText = $profileText.TrimEnd() + "`n`n" + $block + "`n"
+  Write-Host "  appended: $profilePath"
 }
+[System.IO.File]::WriteAllText($profilePath, $profileText, $utf8Bom)
 
 Write-Host ''
-Write-Host '完成。開一個新的 Windows Terminal 分頁，然後用 myclaude 啟動。' -ForegroundColor Green
+Write-Host '完成。開一個新的 Windows Terminal 分頁，直接打 claude 或 codex 即可（已由 wrapper 接手）。' -ForegroundColor Green

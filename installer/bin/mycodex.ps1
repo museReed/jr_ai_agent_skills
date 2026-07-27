@@ -15,8 +15,18 @@ param([Parameter(ValueFromRemainingArguments = $true)][string[]]$CodexArgs)
 
 $ErrorActionPreference = 'Stop'
 
-$codexCmd = Get-Command codex -ErrorAction SilentlyContinue
-$codexBin = if ($codexCmd) { $codexCmd.Source } else { 'codex' }
+# The profile defines a `codex` function that shadows the real command, so a
+# bare Get-Command would resolve to that function and recurse forever. Filter to
+# what actually lives on disk — and accept ExternalScript, not just Application:
+# npm installs these CLIs as .ps1 shims, so an Application-only filter finds nothing.
+$codexCmd = Get-Command codex -All -ErrorAction SilentlyContinue |
+            Where-Object { $_.CommandType -in 'Application', 'ExternalScript' } |
+            Select-Object -First 1
+if (-not $codexCmd) {
+  Write-Error 'codex 不在 PATH 上（找不到執行檔或腳本），無法啟動。'
+  exit 127
+}
+$codexBin = $codexCmd.Source
 
 $watcher = Join-Path $HOME '.local\bin\ai-tab-sync.ps1'
 $syncDir = Join-Path $HOME '.ai-session-names'
