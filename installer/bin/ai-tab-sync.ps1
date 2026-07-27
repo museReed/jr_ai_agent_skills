@@ -5,8 +5,13 @@
 # Windows has no /dev/tty, so this cannot write to a tty device. The spike
 # (docs/spikes/windows-tab-title) confirmed that a separate process attached to
 # the same Windows Terminal console CAN retitle the foreground tab, so the
-# macOS watcher architecture carries over — only the write target changes:
-# the inherited console handle instead of /dev/tty.
+# macOS watcher architecture carries over — only the write mechanism changes.
+#
+# SetConsoleTitle, not OSC. Escape sequences travel in the output stream, and a
+# full-screen TUI owning that stream swallows them: OSC worked in a plain shell
+# but never reached the terminal while Codex was running. SetConsoleTitle is an
+# API call on the shared console, so no renderer sits between us and the tab —
+# and we stop injecting escape bytes into someone else's screen.
 #
 # Usage: ai-tab-sync.ps1 <sync-file> [<parent-pid>]
 
@@ -20,11 +25,8 @@ param(
 # a watcher that dies takes the tab title with it.
 $ErrorActionPreference = 'Continue'
 
-# Titles carry CJK + emoji; without this the console renders mojibake.
-try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
-
-$ESC = [char]27
-$BEL = [char]7
+# No console-encoding setup needed: SetConsoleTitle takes a wide string, so CJK
+# and emoji survive without touching the output stream's codepage.
 $lastTitle = ''
 
 while ($true) {
@@ -36,9 +38,7 @@ while ($true) {
     $title = ''
     try { $title = [System.IO.File]::ReadAllText($SyncFile, [System.Text.Encoding]::UTF8).Trim() } catch {}
     if ($title -and $title -ne $lastTitle) {
-      try { [Console]::Write("$ESC]0;$title$BEL") } catch {}
-      try { [Console]::Write("$ESC]1;$title$BEL") } catch {}
-      try { [Console]::Write("$ESC]2;$title$BEL") } catch {}
+      try { [Console]::Title = $title } catch {}
       $lastTitle = $title
     }
   }

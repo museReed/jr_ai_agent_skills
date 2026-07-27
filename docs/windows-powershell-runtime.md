@@ -24,7 +24,7 @@ IDE 整合終端不支援，也不打算支援。
 
 | 差異 | bash 做法 | Windows 做法 |
 |---|---|---|
-| 沒有 `/dev/tty` | 背景程序 `printf` OSC 到 tty device | watcher 共用 console → `[Console]::Write` 寫 OSC；hook 的 stdout 被收走，改用 `SetConsoleTitle`（`[Console]::Title`）完全繞過 stdout |
+| 沒有 `/dev/tty` | 背景程序 `printf` OSC 到 tty device | **一律用 `SetConsoleTitle`（`[Console]::Title`）**，watcher 與 hook 都是。escape sequence 走輸出串流，在 Windows 上不可靠（見下） |
 | 沒有 `$PPID` | hook 讀 `$PPID`，parent 就是 claude | **pid 整個不能用**（見下），session 身分改用 stdin JSON 的 `session_id` |
 | 背景程序不隨父程序死 | `trap` 裡 `kill` | 同樣在 `finally` 殺，另加 watcher 自檢父 pid 消失就退出，避免孤兒 |
 | 沒有保證的 `sqlite3.exe` | `sqlite3` CLI | Python stdlib `sqlite3`；偵測要**實跑 `--version`**，PATH 上有 `python3.exe` 不代表有 Python（見下） |
@@ -196,5 +196,29 @@ session 後三點全部確認 ——
   那是 console host 在我們寫入標題**之後**加的，無法從腳本移除；開一般視窗即可。
   （Windows Terminal 的 `suppressApplicationTitle` 會連我們的標題一起擋掉，不要開。）
 
-未驗：`myclaude` wrapper 路徑在真實 session 裡的行為（harness T6 已驗過 watcher
-本身）、Codex 那條線的真實 session。
+### 第五輪：Codex 真實 session —— OSC 在 Windows 上整條路都不能用
+
+**現象**：Codex 走 `mycodex`，命名全鏈都通（relay 消化 ✅、sync 檔內容正確 ✅、
+watcher 在跑且盯對檔案 ✅），但 **tab 標題從頭到尾沒閃過**。
+
+**根因**：watcher 當時仍用 OSC escape 改標題。escape sequence 走的是輸出串流，
+而 Codex 是全螢幕 TUI、由它掌控該串流 —— 我們的 bytes 混進去就被吃掉。
+純 shell 下 OSC 會動（harness T6），一旦有 TUI 在場就不會。
+
+這跟 T5 是同一個教訓的第二次現身：**在 Windows 上 escape sequence 不可靠，
+API 呼叫才可靠**。T5 是「寫進 CONOUT$ 沒作用」，這次是「被 TUI 吞掉」。
+
+**修法**：watcher 也改成 `SetConsoleTitle`。至此 watcher 與兩支 hook 用同一個機制，
+專案裡不再有任何一處靠 OSC 改標題。副作用是好的 —— 不再往別人的畫面注入 escape bytes。
+
+**沿途補的兩個洞**：
+
+- Codex namer 原本只在有 wrapper 時寫 sync 檔，**沒有無 wrapper 退路** ——
+  直接跑 `codex` 時完全不碰 tab。補上 `SetConsoleTitle`，與 Claude 那支對齊。
+- Windows installer 漏裝 Codex 的三個 skill + `_shared`（Codex 讀
+  `~/.agents/skills`，不是 `~/.claude/skills`）。skill 裡的手動命名指令是 bash
+  寫法（`mkdir -p /tmp/...` 加 `${PPID}`），且 relay 檔現在以 session_id 命名、
+  模型推導不出來 → 改成指示模型沿用 hook 先前訊息給的路徑。
+
+未驗：上述修正的實機效果、`myclaude` wrapper 路徑在真實 session 裡的行為、
+Codex 的 sandbox 是否每次命名都要人工放行（若是，relay 檔落點要重選）。
