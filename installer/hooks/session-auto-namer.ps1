@@ -47,15 +47,27 @@ function Write-Counter([string]$Path, [int]$Value) {
 # no $PPID, so walk one level up from this hook process. If Claude Code ever
 # spawns hooks through an extra shell layer this lands one level short — that
 # only misfiles the session-names record, it does not affect the tab title.
-$claudePid = Get-ParentPid $PID
+# Everything is keyed by Claude Code's own session_id, not a pid. VM testing
+# showed Windows spawns each hook through a throwaway shell: the parent pid
+# differs on every invocation and is already dead by the time a child script
+# looks it up. That broke both the counters (a fresh file each event, so the
+# count never reached 5) and the record file (unresolvable pid → every session
+# writing to 0.txt). The bash version's $PPID has no working Windows analogue.
+$stdinJson = ''
+if ([Console]::IsInputRedirected) { $stdinJson = [Console]::In.ReadToEnd() }
+$sessionId = ''
+if ($stdinJson) {
+  try { $sessionId = [string]($stdinJson | ConvertFrom-Json).session_id } catch {}
+}
+# Fall back to the pid chain if session_id is ever absent — degraded but no worse
+# than before, and the key shape makes it obvious in the file listing which ran.
+$sessionKey = if ($sessionId) { $sessionId -replace '[^A-Za-z0-9._-]', '_' } else { "pid-$(Get-ParentPid $PID)" }
 
 $counterDir = Join-Path ([System.IO.Path]::GetTempPath()) 'claude-session-namer'
 New-Item -ItemType Directory -Force -Path $counterDir | Out-Null
 
-# Terminal shell PID (claude's parent) keys the session-name file
-$terminalPid = Get-ParentPid $claudePid
-$sessionFile = Join-Path $HOME ".claude\session-names\$terminalPid.txt"
-$defaultMarker = Join-Path $counterDir "$claudePid.default"
+$sessionFile = Join-Path $HOME ".claude\session-names\$sessionKey.txt"
+$defaultMarker = Join-Path $counterDir "$sessionKey.default"
 
 # No-wrapper display path: refresh tab title from the saved name on every event.
 # Claude Code strips ESC bytes from tool stdout, so OSC must go to the device.
@@ -68,11 +80,10 @@ if (-not $env:AI_TAB_SYNC_FILE) {
 }
 
 # One wrapper script does all naming writes (tab-sync file / OSC + session-name
-# file + default-marker cleanup), so one whitelist rule covers it. The agent pid
-# is baked in literally — the model must not re-derive it in its own shell, which
-# sits a process layer deeper.
+# file + default-marker cleanup), so one whitelist rule covers it. The session
+# key is baked in literally — the model's shell cannot derive it.
 $setNamePath = Join-Path $HOME '.claude\hooks\set-session-name.ps1'
-$writeCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$setNamePath`" '{名稱}' $claudePid"
+$writeCmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$setNamePath`" '{名稱}' '$sessionKey'"
 
 $rules = @(
   '命名規則：'
@@ -95,7 +106,7 @@ function Send-NamingRequest([string]$HookEventName, [string]$LeadIn) {
 
 # UserPromptSubmit: name the session right after the user's first message
 if ($EventName -eq 'prompt') {
-  $promptFile = Join-Path $counterDir "$claudePid.prompts"
+  $promptFile = Join-Path $counterDir "$sessionKey.prompts"
   $pcount = (Read-Counter $promptFile) + 1
   Write-Counter $promptFile $pcount
   if ($pcount -eq 1) {
@@ -106,7 +117,7 @@ if ($EventName -eq 'prompt') {
 }
 
 # PostToolUse: count tool calls
-$counterFile = Join-Path $counterDir "$claudePid"
+$counterFile = Join-Path $counterDir "$sessionKey.tools"
 $count = (Read-Counter $counterFile) + 1
 Write-Counter $counterFile $count
 

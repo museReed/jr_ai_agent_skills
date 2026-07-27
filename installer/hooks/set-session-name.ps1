@@ -4,18 +4,22 @@
 #   - session-auto-namer.ps1 (hook-injected WRITE_CMD)
 #   - auto-rename skill (manual /auto-rename)
 #
-# Usage: set-session-name.ps1 '{emoji} {name}' <agent-pid>
+# Usage: set-session-name.ps1 '{emoji} {name}' '<session-key>'
 #
-# PID semantics: the caller passes the AGENT process id (the claude process),
-# because this script sits one process layer deeper than the hook that computed
-# it. The pid only keys the ~/.claude/session-names record file — the tab title
-# itself goes to the console device and does not depend on it, so a wrong pid
-# misfiles the record but never breaks the rename.
+# The session key is Claude Code's session_id, baked into the command the hook
+# injects. It keys the record file and the default marker. Windows pids cannot
+# do this job: each hook runs under a throwaway shell whose pid differs every
+# time and is dead by the time this script looks it up (VM testing), which
+# collapsed every session onto a single 0.txt.
+#
+# Manual /auto-rename has no session_id to pass, so it falls back to the pid
+# chain. The tab title never depends on either — that goes through
+# SetConsoleTitle — so the fallback only affects which record file is written.
 
 [CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)][string]$Name,
-  [int]$AgentPid = 0
+  [string]$SessionKey = ''
 )
 
 $ErrorActionPreference = 'Continue'
@@ -41,12 +45,20 @@ function Write-ConsoleTitle([string]$Text) {
   try { [Console]::Write(([char]27) + "]0;$Text" + ([char]7)) } catch {}
 }
 
-if ($AgentPid -le 0) { $AgentPid = Get-ParentPid $PID }
-$terminalPid = Get-ParentPid $AgentPid
+if ($SessionKey) {
+  $key = $SessionKey -replace '[^A-Za-z0-9._-]', '_'
+} else {
+  # Manual /auto-rename: no session_id available, walk the pid chain instead.
+  # Never key on a bare 0 — an unresolvable pid would make every session share
+  # one record file and clobber each other.
+  $agentPid = Get-ParentPid $PID
+  $terminalPid = Get-ParentPid $agentPid
+  $key = if ($terminalPid -gt 0) { "pid-$terminalPid" } else { "unresolved-$PID" }
+}
 
 $namesDir = Join-Path $HOME '.claude\session-names'
 New-Item -ItemType Directory -Force -Path $namesDir | Out-Null
-[System.IO.File]::WriteAllText((Join-Path $namesDir "$terminalPid.txt"), $Name, $utf8)
+[System.IO.File]::WriteAllText((Join-Path $namesDir "$key.txt"), $Name, $utf8)
 
 if ($env:AI_TAB_SYNC_FILE) {
   # myclaude wrapper: watcher owns the tab, just write the sync file
@@ -56,5 +68,5 @@ if ($env:AI_TAB_SYNC_FILE) {
   Write-ConsoleTitle $Name
 }
 
-$marker = Join-Path ([System.IO.Path]::GetTempPath()) "claude-session-namer\$AgentPid.default"
+$marker = Join-Path ([System.IO.Path]::GetTempPath()) "claude-session-namer\$key.default"
 Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
