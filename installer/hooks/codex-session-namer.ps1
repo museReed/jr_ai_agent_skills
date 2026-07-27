@@ -57,17 +57,22 @@ function Get-PythonPath {
   return $null
 }
 
-$codexPid = Get-ParentPid $PID
-$counterDir = Join-Path ([System.IO.Path]::GetTempPath()) 'codex-session-namer'
-New-Item -ItemType Directory -Force -Path $counterDir | Out-Null
-$counterFile = Join-Path $counterDir "$codexPid"
-$defaultMarker = Join-Path $counterDir "$codexPid.default"
-$relayFile = Join-Path $counterDir "$codexPid.pending"
-
 $sessionId = ''
 if ($stdinJson) {
   try { $sessionId = [string]($stdinJson | ConvertFrom-Json).session_id } catch {}
 }
+
+# Keyed by session_id, not pid — same reason as session-auto-namer.ps1: Windows
+# spawns each hook under a throwaway shell whose pid differs every invocation.
+# The relay file is the sharp edge here: the model writes the path one hook run
+# handed it, and the next run looked for a different filename, so the name was
+# never picked up.
+$sessionKey = if ($sessionId) { $sessionId -replace '[^A-Za-z0-9._-]', '_' } else { "pid-$(Get-ParentPid $PID)" }
+$counterDir = Join-Path ([System.IO.Path]::GetTempPath()) 'codex-session-namer'
+New-Item -ItemType Directory -Force -Path $counterDir | Out-Null
+$counterFile = Join-Path $counterDir "$sessionKey.tools"
+$defaultMarker = Join-Path $counterDir "$sessionKey.default"
+$relayFile = Join-Path $counterDir "$sessionKey.pending"
 
 $sqlitePy = @'
 import os, sqlite3
@@ -145,7 +150,7 @@ function Send-NamingRequest([string]$HookEventName, [string]$LeadIn) {
 
 # UserPromptSubmit: name the session right after the user's first message
 if ($EventName -eq 'prompt') {
-  $promptFile = Join-Path $counterDir "$codexPid.prompts"
+  $promptFile = Join-Path $counterDir "$sessionKey.prompts"
   $pcount = (Read-Counter $promptFile) + 1
   Write-Counter $promptFile $pcount
   if ($pcount -eq 1) {
