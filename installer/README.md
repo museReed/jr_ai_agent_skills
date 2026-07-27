@@ -1,7 +1,7 @@
 # AI Session Auto-Rename + Terminal Tab Sync — Installer
 
 一鍵讓 **Claude Code** 和 **Codex CLI** 的 session 自動命名，並同步到 terminal tab title。
-支援 iTerm2 / Terminal.app / Cursor / Antigravity（VS Code forks）。macOS / Linux。
+支援 iTerm2 / Terminal.app / Ghostty / Cursor / Antigravity（VS Code forks）。macOS / Linux。
 
 ## 安裝
 
