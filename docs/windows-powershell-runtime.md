@@ -145,7 +145,7 @@ hook JSON 通道的 T8。
 | T6b 孤兒自清 | PASS | PASS |
 | T7 emoji 走命令列 | PASS | PASS |
 | T8 hook JSON 通道 | PASS | PASS |
-| T9 Python + SQLite | SKIP（當時沒 Python） | PASS |
+| T9 Python + SQLite | PASS（補裝 Python 後重跑） | PASS |
 
 **移植完成**：`ai-tab-sync` watcher + Claude/Codex 兩支命名 hook 在
 Windows Terminal × PS 5.1 / PS 7 皆驗證通過。
