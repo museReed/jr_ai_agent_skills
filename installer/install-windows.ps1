@@ -1,8 +1,8 @@
 ﻿#!/usr/bin/env pwsh
 <#
   install-windows.ps1 — Windows/PowerShell 版安裝器，對照 install.sh。
-  只裝 auto-rename 這條線（watcher + wrapper + 命名 hook + 三個 skill）；
-  context-monitor 尚未移植，editor 偵測 Windows 上不適用。
+  裝 watcher + wrapper + 命名 hook + context-monitor + 三個 skill；
+  editor 偵測 Windows 上不適用，不含。
 
   用法：
     powershell -NoProfile -ExecutionPolicy Bypass -File installer\install-windows.ps1
@@ -80,6 +80,12 @@ if ($Target -ne 'codex') {
   Write-Host '[2/4] Claude Code：hooks + skills'
   Install-File "$src\hooks\set-session-name.ps1" "$HOME\.claude\hooks\set-session-name.ps1"
   Install-File "$src\hooks\session-auto-namer.ps1" "$HOME\.claude\hooks\session-auto-namer.ps1"
+  Install-File "$src\hooks\context-monitor.ps1" "$HOME\.claude\hooks\context-monitor.ps1"
+  # context-monitor 靠這份快取查每個 model 的真實 context window，避免把 1M 模型當 200k。
+  # 只在缺檔時種下，不覆蓋本機已 populated 的版本。
+  if (-not (Test-Path -LiteralPath "$HOME\.claude\model-context-windows-cache.json")) {
+    Install-File "$src\model-context-windows-cache.json" "$HOME\.claude\model-context-windows-cache.json"
+  }
 
   foreach ($skill in 'auto-rename', 'handoff', 'structured-questions') {
     $dst = "$HOME\.claude\skills\$skill"
@@ -101,10 +107,28 @@ if ($Target -ne 'codex') {
   [System.IO.File]::WriteAllText($skillMd, $md, $utf8Bom)
   Write-Host '  patched: auto-rename SKILL.md → PowerShell 指令'
 
+  # handoff 的 Step 5 把整套命名邏輯用 bash 內聯了一遍（ps -o ppid、/dev/tty、
+  # /tmp marker）。Windows 上沒有一個成立 —— 而 set-session-name.ps1 本來就做完
+  # 同樣的事，所以直接呼叫它，不要再維護第二份。
+  $handoffMd = "$HOME\.claude\skills\handoff\SKILL.md"
+  if (Test-Path -LiteralPath $handoffMd) {
+    $hm = [System.IO.File]::ReadAllText($handoffMd, [System.Text.Encoding]::UTF8)
+    $hmBlock = '```powershell' + "`n& `"$setName`" '📦 {topic}'`n" + '```'
+    $hm = $hm -replace '(?s)```bash\r?\nTERMINAL_PID=.*?```', $hmBlock
+    $hm = $hm -replace '(?s)⚠️ 不要把 OSC 印到 stdout.*?直寫 tty device。',
+         '改名一律呼叫 set-session-name.ps1：它自己判斷要寫 tab-sync 檔（有 wrapper）還是 SetConsoleTitle（無 wrapper），並清掉 default marker。'
+    [System.IO.File]::WriteAllText($handoffMd, $hm, $utf8Bom)
+    Write-Host '  patched: handoff SKILL.md → PowerShell 指令'
+  }
+
   $namer = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$HOME\.claude\hooks\session-auto-namer.ps1`""
   Register-Hook "$HOME\.claude\settings.json" 'session-auto-namer.ps1' @(
     @{ event = 'PostToolUse'; command = $namer }
     @{ event = 'UserPromptSubmit'; command = "$namer prompt" }
+  )
+  $monitor = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$HOME\.claude\hooks\context-monitor.ps1`""
+  Register-Hook "$HOME\.claude\settings.json" '\context-monitor.ps1' @(
+    @{ event = 'PostToolUse'; command = $monitor }
   )
 }
 
@@ -112,6 +136,7 @@ if ($Target -ne 'codex') {
 if ($Target -ne 'claude') {
   Write-Host '[3/4] Codex：hooks + skills'
   Install-File "$src\hooks\codex-session-namer.ps1" "$HOME\.codex\hooks\codex-session-namer.ps1"
+  Install-File "$src\hooks\codex-context-monitor.ps1" "$HOME\.codex\hooks\codex-context-monitor.ps1"
 
   # Codex 讀 ~/.agents/skills（不是 ~/.claude/skills），且三個 skill 共用 _shared
   foreach ($skill in 'auto-rename', 'handoff', 'structured-questions', '_shared') {
@@ -131,6 +156,7 @@ Set-Content -LiteralPath '<hook 給的路徑>' -Value '{emoji} {名稱}' -Encodi
 ```
 '@
   foreach ($md in "$HOME\.agents\skills\auto-rename\SKILL.md",
+                  "$HOME\.agents\skills\handoff\SKILL.md",
                   "$HOME\.agents\skills\_shared\codex-session-rename.md") {
     if (-not (Test-Path -LiteralPath $md)) { continue }
     $text = [System.IO.File]::ReadAllText($md, [System.Text.Encoding]::UTF8)
@@ -144,6 +170,10 @@ Set-Content -LiteralPath '<hook 給的路徑>' -Value '{emoji} {名稱}' -Encodi
   Register-Hook "$HOME\.codex\hooks.json" 'codex-session-namer.ps1' @(
     @{ event = 'PostToolUse'; command = $cnamer }
     @{ event = 'UserPromptSubmit'; command = "$cnamer prompt" }
+  )
+  $cmonitor = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$HOME\.codex\hooks\codex-context-monitor.ps1`""
+  Register-Hook "$HOME\.codex\hooks.json" 'codex-context-monitor.ps1' @(
+    @{ event = 'PostToolUse'; command = $cmonitor }
   )
 }
 

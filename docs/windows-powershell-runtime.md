@@ -17,6 +17,9 @@ IDE 整合終端不支援，也不打算支援。
 | `installer/hooks/set-session-name.sh` | `installer/hooks/set-session-name.ps1` | 唯一命名寫入口（hook 與 auto-rename skill 共用） |
 | `installer/hooks/session-auto-namer.sh` | `installer/hooks/session-auto-namer.ps1` | Claude Code hook：適時要求模型命名 |
 | `installer/hooks/codex-session-namer.sh` | `installer/hooks/codex-session-namer.ps1` | Codex hook：relay 檔 + SQLite sidebar 名 |
+| `installer/hooks/context-monitor.sh` | `installer/hooks/context-monitor.ps1` | Claude hook：讀 transcript 算 token 用量，過門檻要求寫 handoff |
+| `installer/hooks/codex-context-monitor.sh` | `installer/hooks/codex-context-monitor.ps1` | Codex hook：同上，讀 rollout 的 token_count 事件 |
+| — | `installer/install-windows.ps1` | Windows 安裝器（對照 `install.sh`） |
 
 行為與 bash 版一致（輪詢 1 秒、prompt#1 命名、tool call 第 5 次重評、之後每 10 次補命名）。
 
