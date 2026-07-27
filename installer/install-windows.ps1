@@ -110,8 +110,36 @@ if ($Target -ne 'codex') {
 
 # --- 3. Codex ---
 if ($Target -ne 'claude') {
-  Write-Host '[3/4] Codex：hooks'
+  Write-Host '[3/4] Codex：hooks + skills'
   Install-File "$src\hooks\codex-session-namer.ps1" "$HOME\.codex\hooks\codex-session-namer.ps1"
+
+  # Codex 讀 ~/.agents/skills（不是 ~/.claude/skills），且三個 skill 共用 _shared
+  foreach ($skill in 'auto-rename', 'handoff', 'structured-questions', '_shared') {
+    $dst = "$HOME\.agents\skills\$skill"
+    New-Item -ItemType Directory -Force -Path $dst | Out-Null
+    Copy-Item -Path "$src\skills\codex\$skill\*" -Destination $dst -Recurse -Force
+    Write-Host "  installed: $dst\"
+  }
+
+  # 手動命名的指令寫的是 bash：mkdir -p /tmp/... 加 ${PPID}。Windows 上兩者都不成立，
+  # 而且 relay 檔現在以 session_id 命名、模型自己算不出來——所以改成「沿用 hook
+  # 先前訊息裡給的那個路徑」，那是唯一可靠的來源。
+  $psRelay = @'
+```powershell
+# 沿用 hook 先前訊息裡給的 .pending 路徑（模型無法自行推導 session_id）
+Set-Content -LiteralPath '<hook 給的路徑>' -Value '{emoji} {名稱}' -Encoding utf8
+```
+'@
+  foreach ($md in "$HOME\.agents\skills\auto-rename\SKILL.md",
+                  "$HOME\.agents\skills\_shared\codex-session-rename.md") {
+    if (-not (Test-Path -LiteralPath $md)) { continue }
+    $text = [System.IO.File]::ReadAllText($md, [System.Text.Encoding]::UTF8)
+    $text = $text -replace '(?s)```bash\r?\n[^`]*?mkdir -p /tmp/codex-session-namer[^`]*?```', $psRelay
+    $text = $text -replace '\$\{PPID\}\.pending', 'hook 給的 .pending 路徑'
+    [System.IO.File]::WriteAllText($md, $text, $utf8Bom)
+    Write-Host "  patched: $md"
+  }
+
   $cnamer = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$HOME\.codex\hooks\codex-session-namer.ps1`""
   Register-Hook "$HOME\.codex\hooks.json" 'codex-session-namer.ps1' @(
     @{ event = 'PostToolUse'; command = $cnamer }
