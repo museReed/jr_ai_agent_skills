@@ -92,9 +92,9 @@ function Set-SessionName([string]$Name) {
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
   $py = Get-PythonPath
   if ($sessionId -and $db -and -not $py) {
-    # Tab title still works (sync file below); only the sidebar name is lost.
-    # Say so on stderr rather than failing silently — hook stdout is the JSON
-    # channel and must stay clean.
+    # Tab title still works (below); only the sidebar name is lost. Say so on
+    # stderr rather than failing silently — hook stdout is the JSON channel and
+    # must stay clean.
     [Console]::Error.WriteLine('[codex-session-namer] 找不到可用的 Python，跳過 sidebar 改名（tab 標題不受影響）。')
   }
   if ($sessionId -and $db -and $py) {
@@ -106,7 +106,14 @@ function Set-SessionName([string]$Name) {
     try { $sqlitePy | & $py - 2>$null } catch {}
   }
   if ($env:AI_TAB_SYNC_FILE) {
+    # mycodex wrapper: the watcher owns the tab, just write the sync file
     try { [System.IO.File]::WriteAllText($env:AI_TAB_SYNC_FILE, $Name, $utf8) } catch {}
+  } else {
+    # No wrapper. The bash version stops here, so plain `codex` never retitled
+    # the tab on Windows. SetConsoleTitle bypasses stdout (which is this hook's
+    # JSON channel), same as session-auto-namer.ps1 — deliberately no OSC
+    # fallback, since writing escapes to stdout would corrupt the payload.
+    try { [Console]::Title = $Name } catch {}
   }
 }
 
