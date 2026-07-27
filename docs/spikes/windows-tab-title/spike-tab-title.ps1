@@ -1,4 +1,4 @@
-<#
+﻿<#
   spike-tab-title.ps1
   目的：驗證「在 Windows 上能不能自動改 terminal tab 名」。
   對照 macOS 版做法：背景 watcher 直接 printf OSC 到 /dev/tty。

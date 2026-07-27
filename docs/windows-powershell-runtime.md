@@ -17,6 +17,9 @@ IDE 整合終端不支援，也不打算支援。
 | `installer/hooks/set-session-name.sh` | `installer/hooks/set-session-name.ps1` | 唯一命名寫入口（hook 與 auto-rename skill 共用） |
 | `installer/hooks/session-auto-namer.sh` | `installer/hooks/session-auto-namer.ps1` | Claude Code hook：適時要求模型命名 |
 | `installer/hooks/codex-session-namer.sh` | `installer/hooks/codex-session-namer.ps1` | Codex hook：relay 檔 + SQLite sidebar 名 |
+| `installer/hooks/context-monitor.sh` | `installer/hooks/context-monitor.ps1` | Claude hook：讀 transcript 算 token 用量，過門檻要求寫 handoff |
+| `installer/hooks/codex-context-monitor.sh` | `installer/hooks/codex-context-monitor.ps1` | Codex hook：同上，讀 rollout 的 token_count 事件 |
+| — | `installer/install-windows.ps1` | Windows 安裝器（對照 `install.sh`） |
 
 行為與 bash 版一致（輪詢 1 秒、prompt#1 命名、tool call 第 5 次重評、之後每 10 次補命名）。
 
@@ -263,6 +266,30 @@ if ($title -ne $lastTitle -or $title -ne [Console]::Title) { [Console]::Title = 
 
 至此 Codex 這條線在 Windows 上跑通。
 
-未驗：`myclaude` wrapper 路徑在真實 session 裡的行為、直接跑 `codex`（無 wrapper）
-的 `SetConsoleTitle` 退路、Codex 的 sandbox 是否每次命名都要人工放行
-（若是，relay 檔落點要重選）。
+### 第七輪：`claude` / `codex` 交給 wrapper，並補完 context-monitor
+
+**新版 Claude Code 會自己寫 terminal title**（`✳ <自動摘要>`）。要關掉只有
+`CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1` 一個開關，而它**必須在 claude 啟動前設好** ——
+hook 在 claude 已經跑起來之後才執行，來不及。只有 wrapper 做得到。
+
+所以「把 `claude` 指向 wrapper」從方便變成必要：`$PROFILE` 用同名 function 遮蔽
+原生指令（PowerShell 解析順序 function 先於 application），學生照常打 `claude`
+就會走 wrapper。
+
+⚠️ 配套：wrapper 內部找執行檔時要過濾掉 function，否則解析到自己會無限遞迴；
+但**不能只收 `Application`** —— npm 把 `claude` 裝成 `claude.ps1`
+（`ExternalScript`），只認執行檔會變成什麼都找不到。兩種都收。
+
+同輪補完 `context-monitor` 兩支（Claude / Codex）與 handoff skill 的指令改寫。
+context-monitor 不需要 Python：PowerShell 原生解析 JSON。
+
+**Windows 支援線至此完成**，全部經真實 session 驗證：
+Claude 與 Codex 的 hook → 命名 → tab 改名、`context-monitor`、`handoff` skill、
+`install-windows.ps1` 安裝流程。
+
+沙箱備註：Codex 第一次寫 relay 檔會跳一次授權（`%TEMP%` 在工作目錄外），
+**同一個 session 內只跳一次**。判定為可接受，不改 relay 落點 ——
+改設定等於教學生放寬安全預設，為了省一次點擊不划算。
+
+未驗：`context-monitor` 的門檻觸發只在測試模式下確認過（`CONTEXT_MONITOR_TEST_WINDOW`
+/ `CODEX_TEST_MAX_CONTEXT_WINDOW`），真實跑到 70% 的情況尚未遇到。
