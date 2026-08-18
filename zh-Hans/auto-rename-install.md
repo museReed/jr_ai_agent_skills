@@ -133,6 +133,8 @@ cd jr_ai_agent_skills/installer
 | `myclaude` / `mycodex` | `~/.local/bin/` | 建 sync 文件 + 起 watcher + 启动本体 |
 | `ai-tab-sync.sh` | `~/.local/bin/` | watcher：轮询 sync 文件 → OSC 写 tty |
 | sync 文件 | `~/.ai-session-names/{pid}.txt` | tab 名字的唯一事实来源 |
+| breadcrumb | `~/.claude/session-terminals/{session-id}` | 记住这个 session 属于哪个 tab；后台 session 没有自己的终端，靠它找回 tab |
+| 后台 session 名牌 | `~/.claude/jobs/{jobId}/state.json` | 后台列表与画面右下角显示的名字（纯交互 session 没有这个文件） |
 | `session-auto-namer.sh` | `~/.claude/hooks/` | UserPromptSubmit（第一句话命名）+ PostToolUse（#5 重评、每 10 次兜底） |
 | `set-session-name.sh` | `~/.claude/hooks/` | 命名写入包装脚本（hook 自动命名与 `/auto-rename` 共用；把写文件/OSC/清 marker 收进单一脚本，免 `&&` 串接、一条白名单放行） |
 | `codex-session-namer.sh` | `~/.codex/hooks/` | 同上 + 消化 relay 文件、代写 SQLite |

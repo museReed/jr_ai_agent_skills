@@ -135,6 +135,8 @@ With `gh` CLI authed it files the issue directly; otherwise the body lands in th
 | `myclaude` / `mycodex` | `~/.local/bin/` | creates the sync file + spawns the watcher + launches the tool |
 | `ai-tab-sync.sh` | `~/.local/bin/` | watcher: polls the sync file → writes OSC to the tty |
 | sync file | `~/.ai-session-names/{pid}.txt` | single source of truth for the tab name |
+| breadcrumb | `~/.claude/session-terminals/{session-id}` | remembers which tab a session belongs to; a background session has no terminal of its own and uses this to find its tab |
+| background session badge | `~/.claude/jobs/{jobId}/state.json` | the name shown in the background list and at the bottom right (a purely interactive session has no such file) |
 | `session-auto-namer.sh` | `~/.claude/hooks/` | UserPromptSubmit (name from first message) + PostToolUse (#5 re-evaluation, every-10 safety net) |
 | `set-session-name.sh` | `~/.claude/hooks/` | Naming-write wrapper (shared by hook auto-naming and `/auto-rename`; folds file/OSC writes + marker cleanup into one script — no `&&` chain, one allowlist rule) |
 | `codex-session-namer.sh` | `~/.codex/hooks/` | same as above + consumes the relay file, writes SQLite on the model's behalf |

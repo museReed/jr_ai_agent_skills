@@ -133,6 +133,8 @@ cd jr_ai_agent_skills/installer
 | `myclaude` / `mycodex` | `~/.local/bin/` | 建 sync 檔 + 起 watcher + 啟動本體 |
 | `ai-tab-sync.sh` | `~/.local/bin/` | watcher：輪詢 sync 檔 → OSC 寫 tty |
 | sync 檔 | `~/.ai-session-names/{pid}.txt` | tab 名字的唯一事實來源 |
+| breadcrumb | `~/.claude/session-terminals/{session-id}` | 記住這個 session 屬於哪個 tab；背景 session 沒有自己的終端，靠它找回 tab |
+| 背景 session 名牌 | `~/.claude/jobs/{jobId}/state.json` | 背景清單與畫面右下角顯示的名字（純互動 session 沒有這個檔） |
 | `session-auto-namer.sh` | `~/.claude/hooks/` | UserPromptSubmit（第一句話命名）+ PostToolUse（#5 重評、每 10 次兜底） |
 | `set-session-name.sh` | `~/.claude/hooks/` | 命名寫入包裝腳本（hook 自動命名與 `/auto-rename` 共用；把寫檔/OSC/清 marker 收進單一腳本，免 `&&` 串接、一條白名單放行） |
 | `codex-session-namer.sh` | `~/.codex/hooks/` | 同上 + 消化 relay 檔、代寫 SQLite |

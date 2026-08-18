@@ -91,17 +91,19 @@ Commit 到當前 branch，不要切換 branch。
 改名為 `📦 {topic}`（topic 轉中文敘述，≤ 30 字元）。一個 Bash call 完成：
 
 ```bash
-TERMINAL_PID=$(ps -o ppid= -p $PPID 2>/dev/null | tr -d ' ') && \
-mkdir -p ~/.claude/session-names && \
-echo '📦 {topic}' > ~/.claude/session-names/${TERMINAL_PID}.txt && \
-if [ -n "$AI_TAB_SYNC_FILE" ]; then echo '📦 {topic}' > "$AI_TAB_SYNC_FILE"; \
-else TTY_DEV=$(ps -o tty= -p $PPID 2>/dev/null | tr -d ' '); \
-  [ -n "$TTY_DEV" ] && [ -w "/dev/$TTY_DEV" ] && printf '\033]0;📦 {topic}\007' > "/dev/$TTY_DEV"; fi ; \
-rm -f /tmp/claude-session-namer/$PPID.default
+$HOME/.claude/hooks/set-session-name.sh '📦 {topic}' $PPID
 ```
 
-⚠️ 不要把 OSC 印到 stdout — Claude Code 2.1+ 會過濾工具輸出裡的 ESC bytes。
-tab 由 `$AI_TAB_SYNC_FILE`（myclaude wrapper + watcher）同步；沒有 wrapper 時才直寫 tty device。
+⚠️ **不要自己拼命名指令。** 這一步以前是一長串 `&&` 鏈，把寫 name 檔、寫 tab、直寫 tty
+的邏輯抄了一份 —— 於是命名邏輯有兩份，`set-session-name.sh` 的修正到不了交接流程。
+現在統一呼叫那支腳本，它會處理：
+
+- tab 到底該寫哪個檔（繼承來的 `$AI_TAB_SYNC_FILE` 可能指向已結束的 wrapper）
+- 背景 session 沒有自己的終端時怎麼找到 tab
+- 背景 session 的反白條（`~/.claude/jobs/<jobId>/state.json`）
+- 📦 通過 emoji 校驗（它是清單第 9 個，專供本 skill）
+
+`$PPID` 必須在你的 shell 裡展開後傳進去；腳本自己的 `$PPID` 會是呼叫端的 shell，差一層。
 
 回報格式（最後一行必須是可直接複製的單行起始 prompt，路徑用絕對路徑）：
 

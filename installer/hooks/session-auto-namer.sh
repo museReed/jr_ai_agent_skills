@@ -13,6 +13,15 @@
 
 EVENT="${1:-tool}"
 
+# The hook payload carries this session's id. It is passed through to set-session-name.sh,
+# which leaves a session-id -> tab breadcrumb — the only way a background session can later
+# find the terminal that displays it, since it runs under the daemon with no tty and no
+# watcher of its own. Read stdin before anything else; if parsing fails, SESSION_ID stays
+# empty and naming degrades to the old pid-only behaviour.
+PAYLOAD=$(cat)
+SESSION_ID=$(printf '%s' "$PAYLOAD" |
+  python3 -c "import json,sys;print(json.load(sys.stdin).get('session_id') or '')" 2>/dev/null)
+
 CLAUDE_PID=$PPID
 COUNTER_DIR="/tmp/claude-session-namer"
 mkdir -p "$COUNTER_DIR"
@@ -38,7 +47,7 @@ fi
 # and one whitelist rule covers it. Pass the hook's own CLAUDE_PID literally; it
 # must NOT be re-expanded as $PPID in the AI's Bash-tool shell, which can sit one
 # process layer deeper → off-by-one → the name lands in the wrong session-name file.
-WRITE_CMD="$HOME/.claude/hooks/set-session-name.sh '{名稱}' ${CLAUDE_PID}"
+WRITE_CMD="$HOME/.claude/hooks/set-session-name.sh '{名稱}' ${CLAUDE_PID} ${SESSION_ID}"
 
 RULES="命名規則：\n- 格式：{emoji} {中文敘述}，emoji 取代英文動詞，技術名詞可保留英文\n- 總長度 ≤ 40 字元\n- emoji 只能從這 8 個選：🏗️ build/implement/refactor、🔧 fix、🐛 debug、📐 plan/design、📋 review/audit、💬 discuss、⛴️ pilot/spike、🔍 research"
 
